@@ -1,4 +1,4 @@
-# 📋 ÉTUDE COMPLÈTE DES FONCTIONNALITÉS - GECO OUESSO
+# 📋 ÉTUDE COMPLÈTE DES FONCTIONNALITÉS - GECO
 ## Application de Gestion des Certificats d'Origine (CO) et Formule A
 ### Version pour migration vers microservice .NET Core
 
@@ -6,7 +6,7 @@
 
 ## 🎯 VUE D'ENSEMBLE DU PROJET
 
-**Nom du projet :** GECO OUESSO (Gestion Électronique des Certificats d'Origine)  
+**Nom du projet :** GECO (Gestion Électronique des Certificats d'Origine)  
 **Type d'application :** Application web de gestion des certificats d'origine pour la République du Congo 🇨🇬  
 **Technologie actuelle :** Laravel (PHP) + Vue.js/Inertia.js  
 **Objectif :** Migration vers microservice .NET Core avec architecture microservices
@@ -1331,7 +1331,7 @@ Ces référentiels seront consultés via des appels API au microservice référe
 
 ## 📝 CONCLUSION
 
-Ce document présente une vue complète des fonctionnalités du système GECO OUESSO. Pour la migration vers .NET Core en microservice, il sera nécessaire de :
+Ce document présente une vue complète des fonctionnalités du système GECO. Pour la migration vers .NET Core en microservice, il sera nécessaire de :
 
 1. **Séparer les responsabilités** entre microservices
 2. **Conserver localement** les référentiels spécifiques au domaine
@@ -1347,4 +1347,4 @@ Le microservice Certificats sera le cœur du système, gérant tout le cycle de 
 
 **Document généré le :** 2025-01-XX  
 **Version :** 1.0  
-**Projet :** GECO OUESSO - Migration .NET Core Microservice
+**Projet :** GECO - Migration .NET Core Microservice
