@@ -13,3 +13,9 @@ public class StatutCertificatDto
     public DateTime? ModifierLe { get; set; }
     public string? ModifiePar { get; set; }
 }
+
+public class CreerStatutCertificatDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Nom { get; set; } = string.Empty;
+}

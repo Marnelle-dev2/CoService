@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using COService.Application.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -6,8 +7,8 @@ using Refit;
 namespace COService.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Wrapper pour le client Enrolement via l'API Gateway (Apache APISIX)
-/// Note: APISIX gère le service discovery via Consul, on utilise directement l'URL d'APISIX
+/// Client Organisation via API Gateway.
+/// Exemple : http://srv-guot-cont.gumar.local:5000/organisation/Organisations
 /// </summary>
 public class EnrolementServiceClientWrapper : IEnrolementServiceClient
 {
@@ -19,68 +20,60 @@ public class EnrolementServiceClientWrapper : IEnrolementServiceClient
         IConfiguration configuration)
     {
         _logger = logger;
-        
-        // TODO: API Gateway (Apache APISIX) non opérationnel pour l'instant
-        // Pour l'instant, utiliser directement l'URL du service Enrolement
-        // Quand l'API Gateway sera opérationnel, décommenter la section ci-dessous
-        
-        // Option 1: Via API Gateway (quand opérationnel)
-        // var apiGatewayUrl = configuration.GetValue<string>("ApiGateway:BaseUrl") 
-        //     ?? "http://localhost:9080";
-        // var enrolementConfig = configuration.GetSection("ExternalServices:EnrolementService");
-        // var enrolementPath = enrolementConfig.GetValue<string>("Path") ?? "/api/enrolement";
-        // var baseAddress = $"{apiGatewayUrl.TrimEnd('/')}{enrolementPath}";
-        
-        // Option 2: Directement vers le service Enrolement (temporaire)
-        var enrolementServiceUrl = configuration.GetValue<string>("ExternalServices:EnrolementService:BaseUrl")
-            ?? "http://localhost:5000"; // URL directe du service Enrolement
-        var timeout = configuration.GetSection("ExternalServices:EnrolementService")
-            .GetValue<int>("Timeout", 30);
-        
-        var baseAddress = enrolementServiceUrl.TrimEnd('/');
-        
-        _client = RestService.For<IEnrolementServiceClient>(
-            new HttpClient
-            {
-                BaseAddress = new Uri(baseAddress),
-                Timeout = TimeSpan.FromSeconds(timeout)
-            });
 
-        _logger.LogInformation("Client Enrolement configuré directement (API Gateway désactivé): {BaseAddress}", baseAddress);
+        var serviceConfig = configuration.GetSection("ExternalServices:EnrolementService");
+        var useGateway = serviceConfig.GetValue("UseApiGateway", true);
+        var path = serviceConfig.GetValue<string>("Path") ?? "/organisation";
+        var timeout = serviceConfig.GetValue("Timeout", 30);
+        var bearerToken =
+            configuration.GetValue<string>("ApiGateway:BearerToken")
+            ?? serviceConfig.GetValue<string>("BearerToken");
+
+        string baseAddress;
+        if (useGateway)
+        {
+            // Base = gateway seul ; le Path /organisation est dans les attributs Refit
+            // (un Get("/...") avec BaseAddress contenant déjà un path remplacerait ce path)
+            baseAddress = configuration.GetValue<string>("ApiGateway:BaseUrl")
+                ?? throw new InvalidOperationException("ApiGateway:BaseUrl non configuré");
+            _ = path; // conservé en config pour documentation / futurs usages
+        }
+        else
+        {
+            baseAddress = (serviceConfig.GetValue<string>("BaseUrl") ?? "http://localhost:5000").TrimEnd('/');
+        }
+
+        var httpClient = new HttpClient
+        {
+            BaseAddress = new Uri(baseAddress.TrimEnd('/') + "/"),
+            Timeout = TimeSpan.FromSeconds(timeout)
+        };
+
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+        {
+            httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "EnrolementService:BearerToken vide — le gateway renverra probablement 401 sur /organisation");
+        }
+
+        _client = RestService.For<IEnrolementServiceClient>(httpClient);
+
+        _logger.LogInformation(
+            "Client Organisation configuré ({Mode}): {BaseAddress}",
+            useGateway ? "API Gateway" : "direct",
+            baseAddress);
     }
 
-    public async Task<PartenaireDto> GetPartenaireAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _client.GetPartenaireAsync(id, cancellationToken);
-    }
+    public Task<List<OrganisationRemoteDto>> GetAllOrganisationsAsync(CancellationToken cancellationToken = default)
+        => _client.GetAllOrganisationsAsync(cancellationToken);
 
-    public async Task<List<PartenaireDto>> GetAllPartenairesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _client.GetAllPartenairesAsync(cancellationToken);
-    }
+    public Task<List<OrganisationRemoteDto>> GetOrganisationsByTypeAsync(string type, CancellationToken cancellationToken = default)
+        => _client.GetOrganisationsByTypeAsync(type, cancellationToken);
 
-    public async Task<PartenaireDto?> GetPartenaireByCodeAsync(string code, CancellationToken cancellationToken = default)
-    {
-        return await _client.GetPartenaireByCodeAsync(code, cancellationToken);
-    }
-
-    public async Task<ExportateurDto> GetExportateurAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _client.GetExportateurAsync(id, cancellationToken);
-    }
-
-    public async Task<List<ExportateurDto>> GetAllExportateursAsync(CancellationToken cancellationToken = default)
-    {
-        return await _client.GetAllExportateursAsync(cancellationToken);
-    }
-
-    public async Task<ExportateurDto?> GetExportateurByCodeAsync(string code, CancellationToken cancellationToken = default)
-    {
-        return await _client.GetExportateurByCodeAsync(code, cancellationToken);
-    }
-
-    public async Task<List<ExportateurDto>> GetExportateursByPartenaireAsync(Guid partenaireId, CancellationToken cancellationToken = default)
-    {
-        return await _client.GetExportateursByPartenaireAsync(partenaireId, cancellationToken);
-    }
+    public Task<OrganisationRemoteDto> GetOrganisationByCodeAsync(string code, CancellationToken cancellationToken = default)
+        => _client.GetOrganisationByCodeAsync(code, cancellationToken);
 }

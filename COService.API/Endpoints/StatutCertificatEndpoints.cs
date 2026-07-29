@@ -57,5 +57,38 @@ public static class StatutCertificatEndpoints
         .WithSummary("Récupère un statut par son code")
         .Produces<StatutCertificatDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/", async (
+            [FromBody] CreerStatutCertificatDto dto,
+            IStatutCertificatService service,
+            [FromHeader(Name = "X-User-Id")] string? utilisateur,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var statut = await service.CreerStatutAsync(dto, utilisateur, cancellationToken);
+                return Results.Created($"/api/statuts-certificats/{statut.Id}", statut);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
+        })
+        .WithName("CreerStatutCertificat")
+        .WithSummary("Crée un statut de certificat")
+        .Produces<StatutCertificatDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest);
+
+        group.MapPost("/seed-workflow", async (
+            IStatutCertificatService service,
+            [FromHeader(Name = "X-User-Id")] string? utilisateur,
+            CancellationToken cancellationToken) =>
+        {
+            var statuts = await service.SeedStatutsWorkflowAsync(utilisateur, cancellationToken);
+            return Results.Ok(statuts);
+        })
+        .WithName("SeedStatutsWorkflow")
+        .WithSummary("Insère les statuts workflow manquants (ELABORE, SOUMIS, …)")
+        .Produces<IEnumerable<StatutCertificatDto>>(StatusCodes.Status200OK);
     }
 }

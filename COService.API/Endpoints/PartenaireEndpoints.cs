@@ -1,12 +1,11 @@
 using COService.Application.DTOs;
-using COService.Application.Services;
-using Microsoft.AspNetCore.Mvc;
+using COService.Infrastructure.ExternalServices;
+using Refit;
 
 namespace COService.API.Endpoints;
 
 /// <summary>
-/// Endpoints pour la gestion des partenaires (Chambres de Commerce)
-/// Lecture seule - synchronisés depuis le microservice Enrolement
+/// Partenaires (chambres) — lecture live Gateway → /organisation/Organisations/type/PARTENAIRE
 /// </summary>
 public static class PartenaireEndpoints
 {
@@ -15,86 +14,67 @@ public static class PartenaireEndpoints
         var group = app.MapGroup("/api/partenaires")
             .WithTags("Partenaires");
 
-        // GET /api/partenaires - Liste tous les partenaires
         group.MapGet("/", async (
-            IPartenaireService service,
+            IEnrolementServiceClient organisationClient,
             CancellationToken cancellationToken) =>
         {
-            var partenaires = await service.GetAllAsync(cancellationToken);
-            return Results.Ok(partenaires);
+            try
+            {
+                var orgs = await organisationClient.GetOrganisationsByTypeAsync("PARTENAIRE", cancellationToken);
+                var partenaires = orgs.Select(OrganisationRemoteMapper.ToPartenaire).ToList();
+                return Results.Ok(partenaires);
+            }
+            catch (ApiException ex)
+            {
+                return Results.Problem(
+                    detail: $"Gateway/Organisation: {ex.StatusCode} — {ex.Content}",
+                    statusCode: (int)ex.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Impossible de joindre le MS Organisation via le gateway: {ex.Message}",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
         })
         .WithName("GetAllPartenaires")
-        .WithSummary("Récupère tous les partenaires")
+        .WithSummary("Partenaires depuis Organisation (type PARTENAIRE) via Gateway")
         .Produces<IEnumerable<PartenaireDto>>(StatusCodes.Status200OK);
 
-        // GET /api/partenaires/{id} - Récupère un partenaire par ID
-        group.MapGet("/{id:guid}", async (
-            Guid id,
-            IPartenaireService service,
-            CancellationToken cancellationToken) =>
-        {
-            var partenaire = await service.GetByIdAsync(id, cancellationToken);
-            return partenaire == null
-                ? Results.NotFound(new { message = $"Partenaire avec l'ID {id} introuvable." })
-                : Results.Ok(partenaire);
-        })
-        .WithName("GetPartenaireById")
-        .WithSummary("Récupère un partenaire par son identifiant")
-        .Produces<PartenaireDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
-
-        // GET /api/partenaires/code/{code} - Récupère un partenaire par code
         group.MapGet("/code/{code}", async (
             string code,
-            IPartenaireService service,
+            IEnrolementServiceClient organisationClient,
             CancellationToken cancellationToken) =>
         {
-            var partenaire = await service.GetByCodeAsync(code, cancellationToken);
-            return partenaire == null
-                ? Results.NotFound(new { message = $"Partenaire avec le code {code} introuvable." })
-                : Results.Ok(partenaire);
+            try
+            {
+                var org = await organisationClient.GetOrganisationByCodeAsync(code, cancellationToken);
+                if (!string.Equals(org.Type, "PARTENAIRE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.NotFound(new { message = $"Aucune organisation PARTENAIRE avec le code {code}." });
+                }
+                return Results.Ok(OrganisationRemoteMapper.ToPartenaire(org));
+            }
+            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return Results.NotFound(new { message = $"Partenaire {code} introuvable." });
+            }
+            catch (ApiException ex)
+            {
+                return Results.Problem(
+                    detail: $"Gateway/Organisation: {ex.StatusCode} — {ex.Content}",
+                    statusCode: (int)ex.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Impossible de joindre le MS Organisation via le gateway: {ex.Message}",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
         })
         .WithName("GetPartenaireByCode")
-        .WithSummary("Récupère un partenaire par son code")
+        .WithSummary("Partenaire par code depuis Organisation")
         .Produces<PartenaireDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
-
-        // GET /api/partenaires/actifs - Liste les partenaires actifs
-        group.MapGet("/actifs", async (
-            IPartenaireService service,
-            CancellationToken cancellationToken) =>
-        {
-            var partenaires = await service.GetActifsAsync(cancellationToken);
-            return Results.Ok(partenaires);
-        })
-        .WithName("GetPartenairesActifs")
-        .WithSummary("Récupère tous les partenaires actifs")
-        .Produces<IEnumerable<PartenaireDto>>(StatusCodes.Status200OK);
-
-        // GET /api/partenaires/type/{typeId} - Liste les partenaires par type
-        group.MapGet("/type/{typeId:guid}", async (
-            Guid typeId,
-            IPartenaireService service,
-            CancellationToken cancellationToken) =>
-        {
-            var partenaires = await service.GetByTypeAsync(typeId, cancellationToken);
-            return Results.Ok(partenaires);
-        })
-        .WithName("GetPartenairesByType")
-        .WithSummary("Récupère les partenaires par type")
-        .Produces<IEnumerable<PartenaireDto>>(StatusCodes.Status200OK);
-
-        // GET /api/partenaires/departement/{departementId} - Liste les partenaires par département
-        group.MapGet("/departement/{departementId:guid}", async (
-            Guid departementId,
-            IPartenaireService service,
-            CancellationToken cancellationToken) =>
-        {
-            var partenaires = await service.GetByDepartementAsync(departementId, cancellationToken);
-            return Results.Ok(partenaires);
-        })
-        .WithName("GetPartenairesByDepartement")
-        .WithSummary("Récupère les partenaires par département")
-        .Produces<IEnumerable<PartenaireDto>>(StatusCodes.Status200OK);
     }
 }

@@ -1,12 +1,11 @@
 using COService.Application.DTOs;
-using COService.Application.Services;
-using Microsoft.AspNetCore.Mvc;
+using COService.Infrastructure.ExternalServices;
+using Refit;
 
 namespace COService.API.Endpoints;
 
 /// <summary>
-/// Endpoints pour la gestion des exportateurs
-/// Lecture seule - synchronisés depuis le microservice Enrolement
+/// Exportateurs — lecture live Gateway → /organisation/Organisations/type/EXPORTATEUR
 /// </summary>
 public static class ExportateurEndpoints
 {
@@ -15,99 +14,67 @@ public static class ExportateurEndpoints
         var group = app.MapGroup("/api/exportateurs")
             .WithTags("Exportateurs");
 
-        // GET /api/exportateurs - Liste tous les exportateurs
         group.MapGet("/", async (
-            IExportateurService service,
+            IEnrolementServiceClient organisationClient,
             CancellationToken cancellationToken) =>
         {
-            var exportateurs = await service.GetAllAsync(cancellationToken);
-            return Results.Ok(exportateurs);
+            try
+            {
+                var orgs = await organisationClient.GetOrganisationsByTypeAsync("EXPORTATEUR", cancellationToken);
+                var exportateurs = orgs.Select(OrganisationRemoteMapper.ToExportateur).ToList();
+                return Results.Ok(exportateurs);
+            }
+            catch (ApiException ex)
+            {
+                return Results.Problem(
+                    detail: $"Gateway/Organisation: {ex.StatusCode} — {ex.Content}",
+                    statusCode: (int)ex.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Impossible de joindre le MS Organisation via le gateway: {ex.Message}",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
         })
         .WithName("GetAllExportateurs")
-        .WithSummary("Récupère tous les exportateurs")
+        .WithSummary("Exportateurs depuis Organisation (type EXPORTATEUR) via Gateway")
         .Produces<IEnumerable<ExportateurDto>>(StatusCodes.Status200OK);
 
-        // GET /api/exportateurs/{id} - Récupère un exportateur par ID
-        group.MapGet("/{id:guid}", async (
-            Guid id,
-            IExportateurService service,
-            CancellationToken cancellationToken) =>
-        {
-            var exportateur = await service.GetByIdAsync(id, cancellationToken);
-            return exportateur == null
-                ? Results.NotFound(new { message = $"Exportateur avec l'ID {id} introuvable." })
-                : Results.Ok(exportateur);
-        })
-        .WithName("GetExportateurById")
-        .WithSummary("Récupère un exportateur par son identifiant")
-        .Produces<ExportateurDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
-
-        // GET /api/exportateurs/code/{code} - Récupère un exportateur par code
         group.MapGet("/code/{code}", async (
             string code,
-            IExportateurService service,
+            IEnrolementServiceClient organisationClient,
             CancellationToken cancellationToken) =>
         {
-            var exportateur = await service.GetByCodeAsync(code, cancellationToken);
-            return exportateur == null
-                ? Results.NotFound(new { message = $"Exportateur avec le code {code} introuvable." })
-                : Results.Ok(exportateur);
+            try
+            {
+                var org = await organisationClient.GetOrganisationByCodeAsync(code, cancellationToken);
+                if (!string.Equals(org.Type, "EXPORTATEUR", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.NotFound(new { message = $"Aucune organisation EXPORTATEUR avec le code {code}." });
+                }
+                return Results.Ok(OrganisationRemoteMapper.ToExportateur(org));
+            }
+            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return Results.NotFound(new { message = $"Exportateur {code} introuvable." });
+            }
+            catch (ApiException ex)
+            {
+                return Results.Problem(
+                    detail: $"Gateway/Organisation: {ex.StatusCode} — {ex.Content}",
+                    statusCode: (int)ex.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Impossible de joindre le MS Organisation via le gateway: {ex.Message}",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
         })
         .WithName("GetExportateurByCode")
-        .WithSummary("Récupère un exportateur par son code")
+        .WithSummary("Exportateur par code depuis Organisation")
         .Produces<ExportateurDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
-
-        // GET /api/exportateurs/actifs - Liste les exportateurs actifs
-        group.MapGet("/actifs", async (
-            IExportateurService service,
-            CancellationToken cancellationToken) =>
-        {
-            var exportateurs = await service.GetActifsAsync(cancellationToken);
-            return Results.Ok(exportateurs);
-        })
-        .WithName("GetExportateursActifs")
-        .WithSummary("Récupère tous les exportateurs actifs")
-        .Produces<IEnumerable<ExportateurDto>>(StatusCodes.Status200OK);
-
-        // GET /api/exportateurs/partenaire/{partenaireId} - Liste les exportateurs par partenaire
-        group.MapGet("/partenaire/{partenaireId:guid}", async (
-            Guid partenaireId,
-            IExportateurService service,
-            CancellationToken cancellationToken) =>
-        {
-            var exportateurs = await service.GetByPartenaireAsync(partenaireId, cancellationToken);
-            return Results.Ok(exportateurs);
-        })
-        .WithName("GetExportateursByPartenaire")
-        .WithSummary("Récupère les exportateurs par partenaire")
-        .Produces<IEnumerable<ExportateurDto>>(StatusCodes.Status200OK);
-
-        // GET /api/exportateurs/departement/{departementId} - Liste les exportateurs par département
-        group.MapGet("/departement/{departementId:guid}", async (
-            Guid departementId,
-            IExportateurService service,
-            CancellationToken cancellationToken) =>
-        {
-            var exportateurs = await service.GetByDepartementAsync(departementId, cancellationToken);
-            return Results.Ok(exportateurs);
-        })
-        .WithName("GetExportateursByDepartement")
-        .WithSummary("Récupère les exportateurs par département")
-        .Produces<IEnumerable<ExportateurDto>>(StatusCodes.Status200OK);
-
-        // GET /api/exportateurs/type/{type} - Liste les exportateurs par type
-        group.MapGet("/type/{type:int}", async (
-            int type,
-            IExportateurService service,
-            CancellationToken cancellationToken) =>
-        {
-            var exportateurs = await service.GetByTypeAsync(type, cancellationToken);
-            return Results.Ok(exportateurs);
-        })
-        .WithName("GetExportateursByType")
-        .WithSummary("Récupère les exportateurs par type")
-        .Produces<IEnumerable<ExportateurDto>>(StatusCodes.Status200OK);
     }
 }

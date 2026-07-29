@@ -89,6 +89,11 @@ public class CertificatOrigineConfiguration : IEntityTypeConfiguration<Certifica
         builder.Property(c => c.AbonnementId)
             .HasColumnName("abonnement_id");
 
+        // Colonnes MinIO pas encore migrées en base — ignorées temporairement
+        builder.Ignore(c => c.FactureUrl);
+        builder.Ignore(c => c.PiecesJustificativesUrls);
+        builder.Ignore(c => c.CertificatGenereUrl);
+
         // Champs d'audit
         builder.Property(c => c.CreeLe)
             .HasColumnName("CreeLe")

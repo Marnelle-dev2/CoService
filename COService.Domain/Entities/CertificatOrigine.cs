@@ -122,6 +122,21 @@ public class CertificatOrigine
     /// </summary>
     public Guid? DocumentsId { get; set; }
 
+    /// <summary>
+    /// URL de la facture stockée dans MinIO
+    /// </summary>
+    public string? FactureUrl { get; set; }
+
+    /// <summary>
+    /// URLs des pièces justificatives stockées dans MinIO (format JSON)
+    /// </summary>
+    public string? PiecesJustificativesUrls { get; set; }
+
+    /// <summary>
+    /// URL du certificat généré stocké dans MinIO
+    /// </summary>
+    public string? CertificatGenereUrl { get; set; }
+
     // Champs d'audit
     /// <summary>
     /// Date de création

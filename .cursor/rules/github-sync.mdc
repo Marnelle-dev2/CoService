@@ -1,0 +1,15 @@
+---
+description: Push chaque modification vers le repo GitHub CoService
+alwaysApply: true
+---
+
+# Sync GitHub CoService
+
+Après toute modification de code demandée par l’utilisateur dans ce dépôt :
+
+1. **Commit** les changements pertinents (sauf secrets : `appsettings.json`, tokens, mots de passe).
+2. **Push** immédiatement vers `origin` = `https://github.com/Marnelle-dev2/CoService.git` (branche courante, en général `main`).
+3. Suivre le protocole git du projet (status/diff/log, message clair, pas de `--force` sur main, pas de secrets).
+4. Si le push échoue (auth), signaler clairement à l’utilisateur.
+
+Ne pas attendre une demande explicite de commit/push pour ce repo : la synchronisation GitHub est la règle par défaut ici.

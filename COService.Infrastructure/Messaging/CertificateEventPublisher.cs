@@ -1,20 +1,27 @@
 using COService.Application.Messaging;
 using COService.Shared.Events;
+using MassTransit;
 using Microsoft.Extensions.Logging;
 
 namespace COService.Infrastructure.Messaging;
 
 /// <summary>
-/// Publisher pour les événements de certificats
+/// Publisher pour les événements de certificats.
+/// Dual publish : exchange legacy (routing keys) + MassTransit (déclenche la saga).
 /// </summary>
 public class CertificateEventPublisher : ICertificateEventPublisher
 {
     private readonly IRabbitMQClient _rabbitMQClient;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<CertificateEventPublisher> _logger;
 
-    public CertificateEventPublisher(IRabbitMQClient rabbitMQClient, ILogger<CertificateEventPublisher> logger)
+    public CertificateEventPublisher(
+        IRabbitMQClient rabbitMQClient,
+        IPublishEndpoint publishEndpoint,
+        ILogger<CertificateEventPublisher> logger)
     {
         _rabbitMQClient = rabbitMQClient;
+        _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
 
@@ -23,12 +30,12 @@ public class CertificateEventPublisher : ICertificateEventPublisher
         try
         {
             await _rabbitMQClient.PublishAsync("certificat.creé", evt, cancellationToken);
+            await _publishEndpoint.Publish(evt, cancellationToken);
             _logger.LogInformation("Événement 'certificat.creé' publié pour le certificat {CertificatId}", evt.CertificatId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erreur lors de la publication de l'événement 'certificat.creé' pour {CertificatId}", evt.CertificatId);
-            // Ne pas faire échouer l'opération principale si la publication échoue
         }
     }
 
@@ -37,6 +44,7 @@ public class CertificateEventPublisher : ICertificateEventPublisher
         try
         {
             await _rabbitMQClient.PublishAsync("certificat.statut.changé", evt, cancellationToken);
+            await _publishEndpoint.Publish(evt, cancellationToken);
             _logger.LogInformation(
                 "Événement 'certificat.statut.changé' publié pour le certificat {CertificatId} : {AncienStatut} → {NouveauStatut}",
                 evt.CertificatId, evt.AncienStatut, evt.NouveauStatut);
@@ -51,7 +59,7 @@ public class CertificateEventPublisher : ICertificateEventPublisher
     {
         try
         {
-            // Clé principale (sans accents) pour faciliter l'interopérabilité.
+            // Legacy routing keys (interop existante)
             await _rabbitMQClient.PublishAsync("co.valide", new EvenementCOValide
             {
                 IdentifiantCO = evt.CertificatId,
@@ -61,10 +69,13 @@ public class CertificateEventPublisher : ICertificateEventPublisher
                 DateValidationUtc = evt.Timestamp.ToUniversalTime()
             }, cancellationToken);
 
-            // Clé historique conservée pour compatibilité (si d'autres consommateurs existent déjà).
             await _rabbitMQClient.PublishAsync("certificat.valide", evt, cancellationToken);
+
+            // MassTransit → démarre la saga post-validation
+            await _publishEndpoint.Publish(evt, cancellationToken);
+
             _logger.LogInformation(
-                "Événement 'co.valide' publié pour le certificat {CertificatId} ({CertificateNo})",
+                "Événement 'co.valide' + saga MassTransit publiés pour le certificat {CertificatId} ({CertificateNo})",
                 evt.CertificatId, evt.CertificateNo);
         }
         catch (Exception ex)
@@ -78,6 +89,7 @@ public class CertificateEventPublisher : ICertificateEventPublisher
         try
         {
             await _rabbitMQClient.PublishAsync("certificat.rejeté", evt, cancellationToken);
+            await _publishEndpoint.Publish(evt, cancellationToken);
             _logger.LogInformation("Événement 'certificat.rejeté' publié pour le certificat {CertificatId}", evt.CertificatId);
         }
         catch (Exception ex)

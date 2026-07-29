@@ -4,12 +4,15 @@ using COService.Application.Mappings;
 using COService.Application.Messaging;
 using COService.Application.Repositories;
 using COService.Application.Services;
+using COService.Application.Interfaces;
 using COService.Infrastructure.Data;
+using COService.Infrastructure.DependencyInjection;
 using COService.Infrastructure.ExternalServices;
 using COService.Infrastructure.Messaging;
 using COService.Infrastructure.Messaging.Handlers;
 using COService.Infrastructure.Repositories;
 using COService.Infrastructure.Services;
+using COService.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -22,6 +25,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// CORS — client Angular de simulation (localhost:4200) et intégrations locales
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevClient", policy =>
+        policy.WithOrigins("http://localhost:4200", "http://127.0.0.1:4200")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 
 // Configuration Entity Framework Core
 builder.Services.AddDbContext<COServiceDbContext>(options =>
@@ -63,6 +75,8 @@ builder.Services.AddHostedService<ConsulService>();
 // Configuration des services externes
 // Client Enrolement avec wrapper pour découverte de service dynamique
 builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IReferentielServiceClient, ReferentielServiceClientWrapper>();
 
 // Client Auth Service avec wrapper
 builder.Services.AddSingleton<COService.Infrastructure.ExternalServices.IAuthServiceClient, COService.Infrastructure.ExternalServices.AuthServiceClientWrapper>();
@@ -79,8 +93,23 @@ builder.Services.Configure<EnrolementSyncOptions>(options =>
 builder.Services.Configure<RabbitMQOptions>(
     builder.Configuration.GetSection(RabbitMQOptions.SectionName));
 
-// RabbitMQ Client (singleton pour maintenir la connexion)
+// Configuration MinIO
+builder.Services.Configure<MinIOOptions>(
+    builder.Configuration.GetSection("MinIO"));
+
+// Debug : Vérifier ce qui est lu
+var minioConfig = builder.Configuration.GetSection("MinIO").Get<MinIOOptions>();
+var secretKeyDisplay = minioConfig?.SecretKey != null ? "***" : "NULL";
+Console.WriteLine($"MinIO config lue: Endpoint={minioConfig?.Endpoint}, AccessKey={minioConfig?.AccessKey}, SecretKey={secretKeyDisplay}");
+
+// Service MinIO
+builder.Services.AddSingleton<IMinIOService, MinIOService>();
+
+// RabbitMQ Client (singleton pour maintenir la connexion) — legacy exchange evenements.co
 builder.Services.AddSingleton<IRabbitMQClient, RabbitMQClient>();
+
+// MassTransit + Saga post-validation (RabbitMQ ou InMemory selon config)
+builder.Services.AddCoMassTransit(builder.Configuration);
 
 // Event Publishers
 builder.Services.AddScoped<ICertificateEventPublisher, CertificateEventPublisher>();
@@ -175,6 +204,7 @@ app.UseExceptionHandler(options =>
 });
 
 app.UseHttpsRedirection();
+app.UseCors("DevClient");
 
 // Endpoints de vérification de santé
 app.MapHealthEndpoints();
@@ -193,6 +223,8 @@ app.MapWorkflowEndpoints();
 app.MapFormuleAEndpoints();
 app.MapPDFEndpoints();
 app.MapEnrolementSyncEndpoints();
+app.MapDocumentEndpoints();
+app.MapReferentielEndpoints();
 
 app.Run();
 

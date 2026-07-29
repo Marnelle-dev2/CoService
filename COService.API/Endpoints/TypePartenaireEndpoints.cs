@@ -69,5 +69,26 @@ public static class TypePartenaireEndpoints
         .WithName("GetTypesPartenairesActifs")
         .WithSummary("Récupère tous les types de partenaires actifs")
         .Produces<IEnumerable<TypePartenaireDto>>(StatusCodes.Status200OK);
+
+        group.MapPost("/", async (
+            [FromBody] CreerTypePartenaireDto dto,
+            ITypePartenaireService service,
+            [FromHeader(Name = "X-User-Id")] string? utilisateur,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var type = await service.CreerAsync(dto, utilisateur, cancellationToken);
+                return Results.Created($"/api/types-partenaires/{type.Id}", type);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
+        })
+        .WithName("CreerTypePartenaire")
+        .WithSummary("Crée un type de partenaire")
+        .Produces<TypePartenaireDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest);
     }
 }

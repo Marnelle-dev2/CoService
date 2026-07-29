@@ -1,5 +1,6 @@
 using COService.Application.DTOs;
 using COService.Application.Services;
+using COService.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace COService.API.Endpoints;
@@ -12,7 +13,8 @@ public static class CertificatEndpoints
     public static void MapCertificatEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/certificats")
-            .WithTags("Certificats d'origine");
+            .WithTags("Certificats d'origine")
+            .DisableAntiforgery();
 
         // GET /api/certificats - Liste tous les certificats
         group.MapGet("/", async (
@@ -183,6 +185,62 @@ public static class CertificatEndpoints
         .WithSummary("Supprime un certificat d'origine")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status404NotFound);
+
+        // POST /api/certificats/avec-documents - Crée un certificat avec documents
+        group.MapPost("/avec-documents", async (
+            CreateCertificatWithDocumentsDto dto,
+            ICertificatOrigineService certificatService,
+            IMinIOService minioService,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                // 1. Upload de la facture (obligatoire)
+                if (dto.FactureFile == null || dto.FactureFile.Length == 0)
+                    return Results.BadRequest("La facture est obligatoire");
+
+                var factureObjectName = $"Factures/{dto.CertificateNo}/{Guid.NewGuid()}{Path.GetExtension(dto.FactureFile.FileName)}";
+                var factureUrl = await minioService.UploadFileAsync(factureObjectName, dto.FactureFile.OpenReadStream(), dto.FactureFile.ContentType);
+
+                // 2. Upload des pièces justificatives (optionnelles)
+                var piecesUrls = new List<string>();
+                if (dto.PiecesJustificatives != null)
+                {
+                    foreach (var piece in dto.PiecesJustificatives)
+                    {
+                        var pieceObjectName = $"PiecesJustificatives/{dto.CertificateNo}/{Guid.NewGuid()}{Path.GetExtension(piece.FileName)}";
+                        var pieceUrl = await minioService.UploadFileAsync(pieceObjectName, piece.OpenReadStream(), piece.ContentType);
+                        piecesUrls.Add(pieceUrl);
+                    }
+                }
+
+                // 3. Création du certificat avec les URLs
+                var certificatDto = new CreerCertificatOrigineDto
+                {
+                    CertificateNo = dto.CertificateNo,
+                    ExportateurId = dto.ExportateurId,
+                    PartenaireId = dto.PartenaireId,
+                    PaysDestinationId = dto.PaysDestinationId,
+                    Observation = dto.Observation,
+                    Navire = dto.Navire
+                    // FactureUrl et PiecesJustificativesUrls seront gérés dans le service
+                };
+
+                var certificat = await certificatService.CreerCertificatAsync(certificatDto, cancellationToken: cancellationToken);
+
+                return Results.Created($"/api/certificats/{certificat.Id}", certificat);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Erreur lors de la création du certificat: {ex.Message}");
+            }
+        })
+        .WithName("CreateCertificatWithDocuments")
+        .WithSummary("Crée un certificat d'origine avec les documents associés")
+        .Accepts<CreateCertificatWithDocumentsDto>("multipart/form-data")
+        .Produces<CertificatOrigineDto>(StatusCodes.Status201Created)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status500InternalServerError);
     }
 }
 

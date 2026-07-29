@@ -13,4 +13,5 @@ public interface ITypePartenaireRepository
     Task<IEnumerable<TypePartenaire>> GetActifsAsync(CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<TypePartenaire> AddAsync(TypePartenaire typePartenaire, CancellationToken cancellationToken = default);
 }

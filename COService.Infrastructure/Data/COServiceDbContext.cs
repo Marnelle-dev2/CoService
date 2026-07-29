@@ -51,6 +51,9 @@ public class COServiceDbContext : DbContext
     public DbSet<CarnetAdresse> CarnetsAdresses { get; set; }
     public DbSet<StatutCertificat> StatutsCertificats { get; set; }
 
+    /// <summary>États des sagas MassTransit (post-validation CO).</summary>
+    public DbSet<COService.Infrastructure.Sagas.CertificatPostValidationState> SagasCertificatPostValidation { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

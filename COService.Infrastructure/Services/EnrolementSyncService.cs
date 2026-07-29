@@ -93,11 +93,12 @@ public class EnrolementSyncService : IHostedService, IEnrolementSyncService
         try
         {
             _logger.LogInformation("Synchronisation des partenaires...");
-            var partenairesExternes = await _enrolementClient.GetAllPartenairesAsync(cancellationToken);
+            var orgs = await _enrolementClient.GetOrganisationsByTypeAsync("PARTENAIRE", cancellationToken);
+            var partenairesExternes = orgs.Select(OrganisationRemoteMapper.ToPartenaire).ToList();
 
             foreach (var partenaireDto in partenairesExternes)
             {
-                var partenaireExistant = await partenaireRepository.GetByIdAsync(partenaireDto.Id, cancellationToken);
+                var partenaireExistant = await partenaireRepository.GetByCodeAsync(partenaireDto.CodePartenaire, cancellationToken);
 
                 if (partenaireExistant == null)
                 {
@@ -141,11 +142,12 @@ public class EnrolementSyncService : IHostedService, IEnrolementSyncService
         try
         {
             _logger.LogInformation("Synchronisation des exportateurs...");
-            var exportateursExternes = await _enrolementClient.GetAllExportateursAsync(cancellationToken);
+            var orgs = await _enrolementClient.GetOrganisationsByTypeAsync("EXPORTATEUR", cancellationToken);
+            var exportateursExternes = orgs.Select(OrganisationRemoteMapper.ToExportateur).ToList();
 
             foreach (var exportateurDto in exportateursExternes)
             {
-                var exportateurExistant = await exportateurRepository.GetByIdAsync(exportateurDto.Id, cancellationToken);
+                var exportateurExistant = await exportateurRepository.GetByCodeAsync(exportateurDto.CodeExportateur, cancellationToken);
 
                 if (exportateurExistant == null)
                 {
@@ -176,80 +178,16 @@ public class EnrolementSyncService : IHostedService, IEnrolementSyncService
         }
     }
 
-    /// <summary>
-    /// Synchronise un partenaire spécifique par son ID
-    /// </summary>
-    public async Task SynchroniserPartenaireAsync(Guid partenaireId, CancellationToken cancellationToken = default)
+    public Task SynchroniserPartenaireAsync(Guid partenaireId, CancellationToken cancellationToken = default)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var partenaireRepository = scope.ServiceProvider.GetRequiredService<IPartenaireRepository>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
-
-        try
-        {
-            var partenaireDto = await _enrolementClient.GetPartenaireAsync(partenaireId, cancellationToken);
-            var partenaireExistant = await partenaireRepository.GetByIdAsync(partenaireId, cancellationToken);
-
-            if (partenaireExistant == null)
-            {
-                var nouveauPartenaire = mapper.Map<Partenaire>(partenaireDto);
-                nouveauPartenaire.DerniereSynchronisation = DateTime.UtcNow;
-                await partenaireRepository.AddAsync(nouveauPartenaire, cancellationToken);
-            }
-            else
-            {
-                mapper.Map(partenaireDto, partenaireExistant);
-                partenaireExistant.DerniereSynchronisation = DateTime.UtcNow;
-                partenaireExistant.ModifierLe = DateTime.UtcNow;
-                partenaireRepository.Update(partenaireExistant);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erreur lors de la synchronisation du partenaire {PartenaireId}", partenaireId);
-            throw;
-        }
+        return Task.FromException(new NotSupportedException(
+            $"Synchronisation partenaire par GUID ({partenaireId}) non supportée avec l'API Organisation (identifiant = code). Utiliser SynchroniserPartenairesAsync()."));
     }
 
-    /// <summary>
-    /// Synchronise un exportateur spécifique par son ID
-    /// </summary>
-    public async Task SynchroniserExportateurAsync(Guid exportateurId, CancellationToken cancellationToken = default)
+    public Task SynchroniserExportateurAsync(Guid exportateurId, CancellationToken cancellationToken = default)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var exportateurRepository = scope.ServiceProvider.GetRequiredService<IExportateurRepository>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
-
-        try
-        {
-            var exportateurDto = await _enrolementClient.GetExportateurAsync(exportateurId, cancellationToken);
-            var exportateurExistant = await exportateurRepository.GetByIdAsync(exportateurId, cancellationToken);
-
-            if (exportateurExistant == null)
-            {
-                var nouvelExportateur = mapper.Map<Exportateur>(exportateurDto);
-                nouvelExportateur.DerniereSynchronisation = DateTime.UtcNow;
-                await exportateurRepository.AddAsync(nouvelExportateur, cancellationToken);
-            }
-            else
-            {
-                mapper.Map(exportateurDto, exportateurExistant);
-                exportateurExistant.DerniereSynchronisation = DateTime.UtcNow;
-                exportateurExistant.ModifierLe = DateTime.UtcNow;
-                exportateurRepository.Update(exportateurExistant);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erreur lors de la synchronisation de l'exportateur {ExportateurId}", exportateurId);
-            throw;
-        }
+        return Task.FromException(new NotSupportedException(
+            $"Synchronisation exportateur par GUID ({exportateurId}) non supportée avec l'API Organisation (identifiant = code). Utiliser SynchroniserExportateursAsync()."));
     }
 }
 
