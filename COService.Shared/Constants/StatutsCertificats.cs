@@ -1,8 +1,7 @@
 namespace COService.Shared.Constants;
 
 /// <summary>
-/// Constantes pour les codes de statuts de certificats
-/// Ces codes correspondent aux valeurs dans la table StatutsCertificats
+/// Codes d'état des certificats (copie locale table Etats / référentiel).
 /// </summary>
 public static class StatutsCertificats
 {
