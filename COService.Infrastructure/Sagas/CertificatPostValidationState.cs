@@ -12,8 +12,8 @@ public class CertificatPostValidationState : SagaStateMachineInstance
     public string CurrentState { get; set; } = string.Empty;
 
     public string CertificateNo { get; set; } = string.Empty;
-    public Guid? ExportateurId { get; set; }
-    public Guid? PartenaireId { get; set; }
+    public string? ExportateurNIU { get; set; }
+    public string? PartenaireNIU { get; set; }
 
     public string? NumeroFacture { get; set; }
     public string? PdfUrl { get; set; }

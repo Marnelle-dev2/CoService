@@ -45,8 +45,8 @@ public class AuthService : IAuthService
         return await _authServiceClient.VerifierMotDePasseAsync(userId, request, cancellationToken);
     }
 
-    public async Task<bool> VerifierOrganisationAsync(string userId, Guid organisationId, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifierOrganisationAsync(string userId, string organisationCode, CancellationToken cancellationToken = default)
     {
-        return await _authServiceClient.VerifierOrganisationAsync(userId, organisationId, cancellationToken);
+        return await _authServiceClient.VerifierOrganisationAsync(userId, organisationCode, cancellationToken);
     }
 }

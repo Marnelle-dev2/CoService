@@ -17,4 +17,3 @@ public interface ICertificatOrigineService
     Task<IEnumerable<CertificatOrigineDto>> GetCertificatsByStatutAsync(string statut, CancellationToken cancellationToken = default);
     Task<IEnumerable<CertificatOrigineDto>> GetCertificatsByPaysDestinationAsync(string paysDestination, CancellationToken cancellationToken = default);
 }
-

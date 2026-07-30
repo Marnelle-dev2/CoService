@@ -17,12 +17,10 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
     public override async Task<CertificatOrigine?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(c => c.CertificateLines)
+            .Include(c => c.CertificatLignes)
             .Include(c => c.CertificateValidations)
             .Include(c => c.Commentaires)
             .Include(c => c.Abonnement)
-            .Include(c => c.Exportateur)
-            .Include(c => c.Partenaire)
             .Include(c => c.PaysDestination)
             .Include(c => c.PortSortie)
             .Include(c => c.PortCongo)
@@ -31,7 +29,7 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
             .Include(c => c.Module)
             .Include(c => c.Devise)
             .Include(c => c.Type)
-            .Include(c => c.StatutCertificat)
+            .Include(c => c.Etat)
             .Include(c => c.CarnetAdresse)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
@@ -39,12 +37,10 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
     public async Task<CertificatOrigine?> GetByCertificateNoAsync(string certificateNo, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(c => c.CertificateLines)
+            .Include(c => c.CertificatLignes)
             .Include(c => c.CertificateValidations)
             .Include(c => c.Commentaires)
             .Include(c => c.Abonnement)
-            .Include(c => c.Exportateur)
-            .Include(c => c.Partenaire)
             .Include(c => c.PaysDestination)
             .Include(c => c.PortSortie)
             .Include(c => c.PortCongo)
@@ -53,7 +49,7 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
             .Include(c => c.Module)
             .Include(c => c.Devise)
             .Include(c => c.Type)
-            .Include(c => c.StatutCertificat)
+            .Include(c => c.Etat)
             .Include(c => c.CarnetAdresse)
             .FirstOrDefaultAsync(c => c.CertificateNo == certificateNo, cancellationToken);
     }
@@ -61,34 +57,24 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
     public async Task<IEnumerable<CertificatOrigine>> GetByExportateurAsync(string exportateur, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(c => c.Exportateur)
-            .Where(c => c.Exportateur != null && c.Exportateur.Nom.Contains(exportateur))
+            .Where(c => c.ExportateurNom != null && c.ExportateurNom.Contains(exportateur))
             .OrderByDescending(c => c.CreeLe)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<CertificatOrigine>> GetByExportateurIdAsync(Guid exportateurId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<CertificatOrigine>> GetByExportateurNIUAsync(string exportateurNIU, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(c => c.ExportateurId == exportateurId)
+            .Where(c => c.ExportateurNIU == exportateurNIU)
             .OrderByDescending(c => c.CreeLe)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<CertificatOrigine>> GetByStatutAsync(Guid statutCertificatId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<CertificatOrigine>> GetByEtatCodeAsync(string etatCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(c => c.StatutCertificat)
-            .Where(c => c.StatutCertificatId == statutCertificatId)
-            .OrderByDescending(c => c.CreeLe)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<IEnumerable<CertificatOrigine>> GetByStatutNomAsync(string statutNom, CancellationToken cancellationToken = default)
-    {
-        return await _dbSet
-            .Include(c => c.StatutCertificat)
-            .Where(c => c.StatutCertificat != null && c.StatutCertificat.Nom == statutNom)
+            .Include(c => c.Etat)
+            .Where(c => c.EtatCode == etatCode)
             .OrderByDescending(c => c.CreeLe)
             .ToListAsync(cancellationToken);
     }
@@ -102,17 +88,8 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<CertificatOrigine>> GetByPaysDestinationIdAsync(Guid paysDestinationId, CancellationToken cancellationToken = default)
-    {
-        return await _dbSet
-            .Where(c => c.PaysDestinationId == paysDestinationId)
-            .OrderByDescending(c => c.CreeLe)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<bool> ExistsAsync(string certificateNo, CancellationToken cancellationToken = default)
     {
         return await _dbSet.AnyAsync(c => c.CertificateNo == certificateNo, cancellationToken);
     }
 }
-

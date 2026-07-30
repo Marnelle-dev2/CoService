@@ -218,9 +218,9 @@ public static class CertificatEndpoints
                 var certificatDto = new CreerCertificatOrigineDto
                 {
                     CertificateNo = dto.CertificateNo,
-                    ExportateurId = dto.ExportateurId,
-                    PartenaireId = dto.PartenaireId,
-                    PaysDestinationId = dto.PaysDestinationId,
+                    ExportateurNIU = dto.ExportateurNIU,
+                    PartenaireNIU = dto.PartenaireNIU,
+                    PaysDestinationCode = dto.PaysDestinationCode,
                     Observation = dto.Observation,
                     Navire = dto.Navire
                     // FactureUrl et PiecesJustificativesUrls seront gérés dans le service

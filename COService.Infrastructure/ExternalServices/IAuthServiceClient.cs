@@ -34,8 +34,8 @@ public interface IAuthServiceClient
     /// <summary>
     /// Vérifie si un utilisateur appartient à une organisation
     /// </summary>
-    [Get("/api/users/{userId}/organisations/{organisationId}/verify")]
-    Task<bool> VerifierOrganisationAsync(string userId, Guid organisationId, CancellationToken cancellationToken = default);
+    [Get("/api/users/{userId}/organisations/{organisationCode}/verify")]
+    Task<bool> VerifierOrganisationAsync(string userId, string organisationCode, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

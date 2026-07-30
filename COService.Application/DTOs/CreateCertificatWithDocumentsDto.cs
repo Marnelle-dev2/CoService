@@ -13,19 +13,19 @@ public class CreateCertificatWithDocumentsDto
     public string CertificateNo { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID de l'exportateur
+    /// NIU de l'exportateur
     /// </summary>
-    public Guid? ExportateurId { get; set; }
+    public string? ExportateurNIU { get; set; }
 
     /// <summary>
-    /// ID du partenaire
+    /// NIU du partenaire
     /// </summary>
-    public Guid? PartenaireId { get; set; }
+    public string? PartenaireNIU { get; set; }
 
     /// <summary>
-    /// ID du pays de destination
+    /// Code du pays de destination
     /// </summary>
-    public Guid? PaysDestinationId { get; set; }
+    public string? PaysDestinationCode { get; set; }
 
     /// <summary>
     /// Fichier de la facture (obligatoire)

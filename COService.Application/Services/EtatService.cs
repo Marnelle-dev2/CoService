@@ -6,13 +6,13 @@ using COService.Shared.Constants;
 
 namespace COService.Application.Services;
 
-public class StatutCertificatService : IStatutCertificatService
+public class EtatService : IEtatService
 {
-    private readonly IStatutCertificatRepository _repository;
+    private readonly IEtatRepository _repository;
     private readonly IMapper _mapper;
     private readonly IUnitOfWork _unitOfWork;
 
-    private static readonly (string Code, string Nom)[] WorkflowStatuts =
+    private static readonly (string Code, string Libelle)[] WorkflowEtats =
     [
         (StatutsCertificats.Elabore, "Élaboré"),
         (StatutsCertificats.Soumis, "Soumis"),
@@ -27,8 +27,8 @@ public class StatutCertificatService : IStatutCertificatService
         (StatutsCertificats.FormuleAValidee, "Formule A validée")
     ];
 
-    public StatutCertificatService(
-        IStatutCertificatRepository repository,
+    public EtatService(
+        IEtatRepository repository,
         IMapper mapper,
         IUnitOfWork unitOfWork)
     {
@@ -37,74 +37,76 @@ public class StatutCertificatService : IStatutCertificatService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<StatutCertificatDto>> GetAllStatutsAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<EtatDto>> GetAllEtatsAsync(CancellationToken cancellationToken = default)
     {
-        var statuts = await _repository.GetAllAsync(cancellationToken);
-        return _mapper.Map<IEnumerable<StatutCertificatDto>>(statuts);
+        var etats = await _repository.GetAllAsync(cancellationToken);
+        return _mapper.Map<IEnumerable<EtatDto>>(etats);
     }
 
-    public async Task<StatutCertificatDto?> GetStatutByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<EtatDto?> GetEtatByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var statut = await _repository.GetByIdAsync(id, cancellationToken);
-        return statut == null ? null : _mapper.Map<StatutCertificatDto>(statut);
+        var etat = await _repository.GetByIdAsync(id, cancellationToken);
+        return etat == null ? null : _mapper.Map<EtatDto>(etat);
     }
 
-    public async Task<StatutCertificatDto?> GetStatutByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<EtatDto?> GetEtatByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
-        var statut = await _repository.GetByCodeAsync(code, cancellationToken);
-        return statut == null ? null : _mapper.Map<StatutCertificatDto>(statut);
+        var etat = await _repository.GetByCodeAsync(code, cancellationToken);
+        return etat == null ? null : _mapper.Map<EtatDto>(etat);
     }
 
-    public async Task<StatutCertificatDto> CreerStatutAsync(
-        CreerStatutCertificatDto dto,
+    public async Task<EtatDto> CreerEtatAsync(
+        CreerEtatDto dto,
         string? utilisateur = null,
         CancellationToken cancellationToken = default)
     {
         var code = dto.Code.Trim().ToUpperInvariant();
         if (await _repository.ExistsAsync(code, cancellationToken))
         {
-            throw new InvalidOperationException($"Un statut avec le code '{code}' existe déjà.");
+            throw new InvalidOperationException($"Un état avec le code '{code}' existe déjà.");
         }
 
-        var statut = new StatutCertificat
+        var etat = new Etat
         {
             Id = Guid.NewGuid(),
             Code = code,
-            Nom = dto.Nom.Trim(),
+            Libelle = dto.Libelle.Trim(),
+            Description = dto.Description,
+            CodeEcran = dto.CodeEcran,
             CreeLe = DateTime.UtcNow,
             CreePar = utilisateur ?? "SIMULATOR"
         };
 
-        await _repository.AddAsync(statut, cancellationToken);
+        await _repository.AddAsync(etat, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return _mapper.Map<StatutCertificatDto>(statut);
+        return _mapper.Map<EtatDto>(etat);
     }
 
-    public async Task<IEnumerable<StatutCertificatDto>> SeedStatutsWorkflowAsync(
+    public async Task<IEnumerable<EtatDto>> SeedEtatsWorkflowAsync(
         string? utilisateur = null,
         CancellationToken cancellationToken = default)
     {
         var createdAny = false;
-        foreach (var (code, nom) in WorkflowStatuts)
+        foreach (var (code, libelle) in WorkflowEtats)
         {
             if (await _repository.ExistsAsync(code, cancellationToken))
                 continue;
 
-            var statut = new StatutCertificat
+            var etat = new Etat
             {
                 Id = Guid.NewGuid(),
                 Code = code,
-                Nom = nom,
+                Libelle = libelle,
                 CreeLe = DateTime.UtcNow,
                 CreePar = utilisateur ?? "SIMULATOR"
             };
-            await _repository.AddAsync(statut, cancellationToken);
+            await _repository.AddAsync(etat, cancellationToken);
             createdAny = true;
         }
 
         if (createdAny)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<IEnumerable<StatutCertificatDto>>(await _repository.GetAllAsync(cancellationToken));
+        return _mapper.Map<IEnumerable<EtatDto>>(await _repository.GetAllAsync(cancellationToken));
     }
 }

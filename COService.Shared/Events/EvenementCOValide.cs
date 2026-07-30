@@ -8,8 +8,8 @@ public class EvenementCOValide
 {
     public Guid IdentifiantCO { get; set; }
     public string NumeroCO { get; set; } = string.Empty;
-    public Guid? IdentifiantExportateur { get; set; }
-    public Guid? IdentifiantPartenaire { get; set; }
+    public string? NIUExportateur { get; set; }
+    public string? NIUPartenaire { get; set; }
     public DateTime DateValidationUtc { get; set; } = DateTime.UtcNow;
 }
 

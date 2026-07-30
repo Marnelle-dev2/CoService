@@ -18,7 +18,7 @@ namespace COService.Application.Services;
 public class WorkflowService : IWorkflowService
 {
     private readonly ICertificatOrigineRepository _certificatRepository;
-    private readonly IStatutCertificatRepository _statutRepository;
+    private readonly IEtatRepository _etatRepository;
     private readonly ICommentaireRepository _commentaireRepository;
     private readonly IAuthService _authService;
     private readonly ICertificateEventPublisher _eventPublisher;
@@ -31,7 +31,7 @@ public class WorkflowService : IWorkflowService
 
     public WorkflowService(
         ICertificatOrigineRepository certificatRepository,
-        IStatutCertificatRepository statutRepository,
+        IEtatRepository etatRepository,
         ICommentaireRepository commentaireRepository,
         IAuthService authService,
         ICertificateEventPublisher eventPublisher,
@@ -41,7 +41,7 @@ public class WorkflowService : IWorkflowService
         IServiceProvider serviceProvider)
     {
         _certificatRepository = certificatRepository;
-        _statutRepository = statutRepository;
+        _etatRepository = etatRepository;
         _commentaireRepository = commentaireRepository;
         _authService = authService;
         _eventPublisher = eventPublisher;
@@ -54,11 +54,11 @@ public class WorkflowService : IWorkflowService
         var notificationService = serviceProvider.GetRequiredService<INotificationService>();
         
         _pointeNoireService = new WorkflowPointeNoireService(
-            certificatRepository, statutRepository, commentaireRepository,
+            certificatRepository, etatRepository, commentaireRepository,
             authService, eventPublisher, notificationService, mapper, unitOfWork, logger);
         
         _ouessoService = new WorkflowOuessoService(
-            certificatRepository, statutRepository, commentaireRepository,
+            certificatRepository, etatRepository, commentaireRepository,
             authService, eventPublisher, notificationService, mapper, unitOfWork, logger);
     }
 
@@ -67,7 +67,7 @@ public class WorkflowService : IWorkflowService
     /// </summary>
     private IWorkflowChambreService GetWorkflowService(CertificatOrigine certificat)
     {
-        var codePartenaire = certificat.Partenaire?.CodePartenaire;
+        var codePartenaire = certificat.PartenaireNIU;
         
         if (ChambresCommerce.EstPointeNoire(codePartenaire))
         {

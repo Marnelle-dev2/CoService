@@ -1,227 +1,86 @@
-using COService.Domain.Enums;
-
 namespace COService.Domain.Entities;
 
 /// <summary>
-/// Entité représentant un certificat d'origine
+/// Certificat d'origine — clés métier = codes / NIU (pas de GUID externes).
 /// </summary>
 public class CertificatOrigine
 {
-    /// <summary>
-    /// Identifiant unique du certificat
-    /// </summary>
     public Guid Id { get; set; }
-
-    /// <summary>
-    /// Numéro du certificat (unique)
-    /// </summary>
     public string CertificateNo { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Référence à l'exportateur
-    /// </summary>
-    public Guid? ExportateurId { get; set; }
+    // Enrôlement (pas de table locale)
+    public string? ExportateurNIU { get; set; }
+    public string? ExportateurNom { get; set; }
+    public string? PartenaireNIU { get; set; }
+    public string? PartenaireNom { get; set; }
+    public string? MandataireNIU { get; set; }
+    public string? MandataireNom { get; set; }
 
-    /// <summary>
-    /// Exportateur
-    /// </summary>
-    public Exportateur? Exportateur { get; set; }
-
-    /// <summary>
-    /// Référence au partenaire/CCI
-    /// </summary>
-    public Guid? PartenaireId { get; set; }
-
-    /// <summary>
-    /// Partenaire/CCI
-    /// </summary>
-    public Partenaire? Partenaire { get; set; }
-
-    /// <summary>
-    /// Référence au pays de destination
-    /// </summary>
-    public Guid? PaysDestinationId { get; set; }
-
-    /// <summary>
-    /// Pays de destination
-    /// </summary>
+    // Référentiel (copie locale, jointure par Code)
+    public string? PaysDestinationCode { get; set; }
     public Pays? PaysDestination { get; set; }
 
-    /// <summary>
-    /// Référence au port de sortie
-    /// </summary>
-    public Guid? PortSortieId { get; set; }
-
-    /// <summary>
-    /// Port de sortie
-    /// </summary>
+    public string? PortSortieCode { get; set; }
     public Port? PortSortie { get; set; }
 
-    /// <summary>
-    /// Référence au port côté Congo
-    /// </summary>
-    public Guid? PortCongoId { get; set; }
-
-    /// <summary>
-    /// Port côté Congo
-    /// </summary>
+    public string? PortCongoCode { get; set; }
     public Port? PortCongo { get; set; }
 
-    /// <summary>
-    /// Référence au type de certificat
-    /// </summary>
-    public Guid? TypeId { get; set; }
+    public string? AeroportCode { get; set; }
+    public Aeroport? Aeroport { get; set; }
 
-    /// <summary>
-    /// Type de certificat (EUR.1, Formule A, etc.)
-    /// </summary>
-    public CertificateType? Type { get; set; }
+    public string? RouteCode { get; set; }
+    public RouteNationale? Route { get; set; }
 
-    /// <summary>
-    /// Formule du certificat
-    /// </summary>
-    public string? Formule { get; set; }
-
-    /// <summary>
-    /// Mandataire (optionnel)
-    /// </summary>
-    public string? Mandataire { get; set; }
-
-    /// <summary>
-    /// Référence au statut du certificat
-    /// </summary>
-    public Guid? StatutCertificatId { get; set; }
-
-    /// <summary>
-    /// Statut du certificat
-    /// </summary>
-    public StatutCertificat? StatutCertificat { get; set; }
-
-    /// <summary>
-    /// Observation interne
-    /// </summary>
-    public string? Observation { get; set; }
-
-    /// <summary>
-    /// Référence au destinataire (carnet d'adresses)
-    /// </summary>
-    public Guid? CarnetAdresseId { get; set; }
-
-    /// <summary>
-    /// Destinataire (carnet d'adresses)
-    /// </summary>
+    public string? CarnetAdresseCode { get; set; }
     public CarnetAdresse? CarnetAdresse { get; set; }
 
-    /// <summary>
-    /// Nom du navire
-    /// </summary>
-    public string? Navire { get; set; }
-
-    /// <summary>
-    /// Référence aux documents attachés (microservice Documents)
-    /// </summary>
-    public Guid? DocumentsId { get; set; }
-
-    /// <summary>
-    /// URL de la facture stockée dans MinIO
-    /// </summary>
-    public string? FactureUrl { get; set; }
-
-    /// <summary>
-    /// URLs des pièces justificatives stockées dans MinIO (format JSON)
-    /// </summary>
-    public string? PiecesJustificativesUrls { get; set; }
-
-    /// <summary>
-    /// URL du certificat généré stocké dans MinIO
-    /// </summary>
-    public string? CertificatGenereUrl { get; set; }
-
-    // Champs d'audit
-    /// <summary>
-    /// Date de création
-    /// </summary>
-    public DateTime CreeLe { get; set; }
-
-    /// <summary>
-    /// Utilisateur créateur
-    /// </summary>
-    public string? CreePar { get; set; }
-
-    /// <summary>
-    /// Date de dernière modification
-    /// </summary>
-    public DateTime? ModifierLe { get; set; }
-
-    /// <summary>
-    /// Utilisateur ayant modifié
-    /// </summary>
-    public string? ModifiePar { get; set; }
-
-    // Navigation properties
-    /// <summary>
-    /// Lignes de produits du certificat
-    /// </summary>
-    public ICollection<CertificateLine> CertificateLines { get; set; } = new List<CertificateLine>();
-
-    /// <summary>
-    /// Validations du certificat
-    /// </summary>
-    public ICollection<CertificateValidation> CertificateValidations { get; set; } = new List<CertificateValidation>();
-
-    /// <summary>
-    /// Commentaires sur le certificat
-    /// </summary>
-    public ICollection<Commentaire> Commentaires { get; set; } = new List<Commentaire>();
-
-    /// <summary>
-    /// Référence à l'abonnement (optionnel, un certificat peut ne pas avoir d'abonnement)
-    /// </summary>
-    public Guid? AbonnementId { get; set; }
-
-    /// <summary>
-    /// Abonnement auquel ce certificat est rattaché
-    /// </summary>
-    public Abonnement? Abonnement { get; set; }
-
-    /// <summary>
-    /// Référence à la zone de production
-    /// </summary>
-    public Guid? ZoneProductionId { get; set; }
-
-    /// <summary>
-    /// Zone de production
-    /// </summary>
-    public ZoneProduction? ZoneProduction { get; set; }
-
-    /// <summary>
-    /// Référence au bureau de douane
-    /// </summary>
-    public Guid? BureauDedouanementId { get; set; }
-
-    /// <summary>
-    /// Bureau de douane
-    /// </summary>
-    public BureauDedouanement? BureauDedouanement { get; set; }
-
-    /// <summary>
-    /// Référence au module de transport
-    /// </summary>
-    public Guid? ModuleId { get; set; }
-
-    /// <summary>
-    /// Module de transport
-    /// </summary>
+    public string? ModuleCode { get; set; }
     public Module? Module { get; set; }
 
-    /// <summary>
-    /// Référence à la devise
-    /// </summary>
-    public Guid? DeviseId { get; set; }
-
-    /// <summary>
-    /// Devise
-    /// </summary>
+    public string? DeviseCode { get; set; }
     public Devise? Devise { get; set; }
-}
 
+    public string? BureauDedouanementCode { get; set; }
+    public BureauDedouanement? BureauDedouanement { get; set; }
+
+    // État (copie référentiel)
+    public string? EtatCode { get; set; }
+    public Etat? Etat { get; set; }
+
+    // Interne CO
+    public Guid? TypeId { get; set; }
+    public CertificateType? Type { get; set; }
+
+    public string? ZoneProductionCode { get; set; }
+    public ZoneProduction? ZoneProduction { get; set; }
+
+    public string? BattantPavillonCode { get; set; }
+    public BattantPavillon? BattantPavillon { get; set; }
+
+    // Paiement (pas de table locale)
+    public string? ModePaiementCode { get; set; }
+    public string? ModePaiement { get; set; }
+
+    // MinIO
+    public string? CodeDocument { get; set; }
+    public string? FactureUrl { get; set; }
+    public string? PiecesJustificativesUrls { get; set; }
+    public string? CertificatGenereUrl { get; set; }
+
+    public string? Formule { get; set; }
+    public string? Observation { get; set; }
+    public string? Navire { get; set; }
+
+    public Guid? AbonnementId { get; set; }
+    public Abonnement? Abonnement { get; set; }
+
+    public DateTime CreeLe { get; set; }
+    public string? CreePar { get; set; }
+    public DateTime? ModifierLe { get; set; }
+    public string? ModifiePar { get; set; }
+
+    public ICollection<CertificatLigne> CertificatLignes { get; set; } = new List<CertificatLigne>();
+    public ICollection<CertificateValidation> CertificateValidations { get; set; } = new List<CertificateValidation>();
+    public ICollection<Commentaire> Commentaires { get; set; } = new List<Commentaire>();
+}

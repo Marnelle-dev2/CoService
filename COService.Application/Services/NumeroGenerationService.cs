@@ -6,48 +6,42 @@ namespace COService.Application.Services;
 
 /// <summary>
 /// Service pour la génération des numéros de certificats, abonnements, etc.
+/// Le partenaire (chambre de commerce) est identifié par son NIU (Enrôlement), plus de table locale Partenaire.
 /// </summary>
 public class NumeroGenerationService : INumeroGenerationService
 {
-    private readonly IPartenaireRepository _partenaireRepository;
     private readonly ICertificatOrigineRepository _certificatRepository;
     private readonly ILogger<NumeroGenerationService> _logger;
 
     public NumeroGenerationService(
-        IPartenaireRepository partenaireRepository,
         ICertificatOrigineRepository certificatRepository,
         ILogger<NumeroGenerationService> logger)
     {
-        _partenaireRepository = partenaireRepository;
         _certificatRepository = certificatRepository;
         _logger = logger;
     }
 
-    public async Task<string> GenererNumeroCertificatAsync(Guid partenaireId, Guid certificatId, CancellationToken cancellationToken = default)
+    public async Task<string> GenererNumeroCertificatAsync(string partenaireNIU, Guid certificatId, CancellationToken cancellationToken = default)
     {
-        // 1. Récupérer le partenaire
-        var partenaire = await _partenaireRepository.GetByIdAsync(partenaireId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Partenaire {partenaireId} introuvable");
+        // 1. Récupérer le code département de la chambre de commerce
+        var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken)
+            ?? throw new InvalidOperationException($"Impossible de déterminer le code département pour le partenaire {partenaireNIU}");
 
-        // 2. Récupérer le code département
-        var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireId, cancellationToken)
-            ?? throw new InvalidOperationException($"Impossible de déterminer le code département pour le partenaire {partenaireId}");
-
-        // 3. Formater la date actuelle
+        // 2. Formater la date actuelle
         var dateFormatee = FormaterDatePourNumero(DateTime.UtcNow);
 
-        // 4. Récupérer le dernier numéro séquentiel pour cette date et ce partenaire
-        var dernierNumero = await GetDernierNumeroSequencielAsync(partenaireId, DateTime.UtcNow.Date, cancellationToken);
+        // 3. Récupérer le dernier numéro séquentiel pour cette date et ce partenaire
+        var dernierNumero = await GetDernierNumeroSequencielAsync(partenaireNIU, DateTime.UtcNow.Date, cancellationToken);
 
-        // 5. Incrémenter
+        // 4. Incrémenter
         var nouveauNumero = dernierNumero + 1;
 
-        // 6. Construire le numéro : CO{Numéro}{Date}{CodeDépartement}
+        // 5. Construire le numéro : CO{Numéro}{Date}{CodeDépartement}
         var numeroCertificat = $"CO{nouveauNumero:D6}{dateFormatee}{codeDepartement}";
 
         _logger.LogInformation(
-            "Numéro de certificat généré : {Numero} pour le partenaire {PartenaireId}",
-            numeroCertificat, partenaireId);
+            "Numéro de certificat généré : {Numero} pour le partenaire {PartenaireNIU}",
+            numeroCertificat, partenaireNIU);
 
         return numeroCertificat;
     }
@@ -61,40 +55,44 @@ public class NumeroGenerationService : INumeroGenerationService
         return Task.FromResult(numero);
     }
 
-    public async Task<string> GenererNumeroFactureAsync(Guid partenaireId, CancellationToken cancellationToken = default)
+    public async Task<string> GenererNumeroFactureAsync(string partenaireNIU, CancellationToken cancellationToken = default)
     {
         var maintenant = DateTime.UtcNow;
-        var codePartenaire = await GetCodeDepartementPartenaireAsync(partenaireId, cancellationToken) ?? "XXX";
+        var codePartenaire = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken) ?? "XXX";
         var numero = $"FACT{maintenant:yyyyMMdd}{codePartenaire}{maintenant:HHmmss}";
         
-        _logger.LogInformation("Numéro de facture généré : {Numero} pour le partenaire {PartenaireId}", numero, partenaireId);
+        _logger.LogInformation("Numéro de facture généré : {Numero} pour le partenaire {PartenaireNIU}", numero, partenaireNIU);
         return numero;
     }
 
-    public async Task<string?> GetCodeDepartementPartenaireAsync(Guid partenaireId, CancellationToken cancellationToken = default)
+    public Task<string?> GetCodeDepartementPartenaireAsync(string partenaireNIU, CancellationToken cancellationToken = default)
     {
-        var partenaire = await _partenaireRepository.GetByIdAsync(partenaireId, cancellationToken);
-        
-        if (partenaire?.Departement == null)
+        // Valeurs temporaires basées sur le code partenaire (chambre de commerce) - voir ChambresCommerce
+        if (ChambresCommerce.EstPointeNoire(partenaireNIU))
         {
-            _logger.LogWarning("Partenaire {PartenaireId} n'a pas de département associé", partenaireId);
-            return null;
+            return Task.FromResult<string?>(ChambresCommerce.PointeNoire.CodeDepartement);
         }
 
-        return partenaire.Departement.Code;
+        if (ChambresCommerce.EstOuesso(partenaireNIU))
+        {
+            return Task.FromResult<string?>(ChambresCommerce.Ouesso.CodeDepartement);
+        }
+
+        _logger.LogWarning("Aucun code département connu pour le partenaire {PartenaireNIU}", partenaireNIU);
+        return Task.FromResult<string?>(null);
     }
 
-    public async Task<int> GetDernierNumeroSequencielAsync(Guid partenaireId, DateTime date, CancellationToken cancellationToken = default)
+    public async Task<int> GetDernierNumeroSequencielAsync(string partenaireNIU, DateTime date, CancellationToken cancellationToken = default)
     {
         // Récupérer tous les certificats du partenaire
         var certificats = await _certificatRepository.GetAllAsync(cancellationToken);
         
         var certificatsPartenaire = certificats
-            .Where(c => c.PartenaireId == partenaireId && c.CertificateNo.StartsWith("CO"))
+            .Where(c => c.PartenaireNIU == partenaireNIU && c.CertificateNo.StartsWith("CO"))
             .ToList();
 
         var dateFormatee = FormaterDatePourNumero(date);
-        var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireId, cancellationToken);
+        var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken);
 
         if (string.IsNullOrEmpty(codeDepartement))
         {

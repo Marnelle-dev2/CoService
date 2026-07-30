@@ -1,7 +1,7 @@
 namespace COService.Application.DTOs;
 
 /// <summary>
-/// DTO représentant un exportateur
+/// DTO représentant un exportateur (lecture live depuis Organisation via Gateway)
 /// </summary>
 public class ExportateurDto
 {
@@ -16,14 +16,6 @@ public class ExportateurDto
     public string? Telephone { get; set; }
     public string? Email { get; set; }
     public bool Actif { get; set; }
-    public Guid? PartenaireId { get; set; }
     public string? PartenaireNom { get; set; }
-    public Guid? DepartementId { get; set; }
     public string? DepartementNom { get; set; }
-    public int? TypeExportateur { get; set; }
-    public DateTime? DerniereSynchronisation { get; set; }
-    public DateTime? CreeLe { get; set; }
-    public string? CreePar { get; set; }
-    public DateTime? ModifierLe { get; set; }
-    public string? ModifiePar { get; set; }
 }

@@ -35,7 +35,7 @@ public class NotificationService : INotificationService
         }
 
         // Récupérer l'email de l'exportateur si disponible
-        var destinataire = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataire = string.Empty ?? string.Empty;
         if (string.IsNullOrEmpty(destinataire))
         {
             _logger.LogWarning("Aucun email trouvé pour l'exportateur du certificat {CertificatId}", certificatId);
@@ -65,7 +65,7 @@ public class NotificationService : INotificationService
             return;
         }
 
-        var destinataire = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataire = string.Empty ?? string.Empty;
         if (string.IsNullOrEmpty(destinataire))
         {
             _logger.LogWarning("Aucun email trouvé pour l'exportateur du certificat {CertificatId}", certificatId);
@@ -95,7 +95,7 @@ public class NotificationService : INotificationService
             return;
         }
 
-        var destinataire = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataire = string.Empty ?? string.Empty;
         if (string.IsNullOrEmpty(destinataire))
         {
             _logger.LogWarning("Aucun email trouvé pour l'exportateur du certificat {CertificatId}", certificatId);
@@ -126,7 +126,7 @@ public class NotificationService : INotificationService
         }
 
         // Notification à l'exportateur
-        var destinataireExportateur = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataireExportateur = string.Empty ?? string.Empty;
         if (!string.IsNullOrEmpty(destinataireExportateur))
         {
             await _notificationPublisher.PublishNotificationDemandeAsync(new NotificationDemandeEvent
@@ -139,7 +139,7 @@ public class NotificationService : INotificationService
         }
 
         // Notification à la chambre de commerce
-        var destinataireChambre = certificat.Partenaire?.Email ?? string.Empty;
+        var destinataireChambre = string.Empty ?? string.Empty;
         if (!string.IsNullOrEmpty(destinataireChambre))
         {
             await _notificationPublisher.PublishNotificationDemandeAsync(new NotificationDemandeEvent
@@ -147,7 +147,7 @@ public class NotificationService : INotificationService
                 Type = "email",
                 Destinataire = destinataireChambre,
                 Sujet = $"Nouveau certificat soumis - {certificat.CertificateNo}",
-                Corps = $"Un nouveau certificat {certificat.CertificateNo} a été soumis par {certificat.Exportateur?.Nom}."
+                Corps = $"Un nouveau certificat {certificat.CertificateNo} a été soumis par {certificat.ExportateurNom}."
             }, cancellationToken);
         }
 
@@ -165,7 +165,7 @@ public class NotificationService : INotificationService
 
         if (approuve)
         {
-            var destinataire = certificat.Exportateur?.Email ?? string.Empty;
+            var destinataire = string.Empty ?? string.Empty;
             if (!string.IsNullOrEmpty(destinataire))
             {
                 await _notificationPublisher.PublishNotificationDemandeAsync(new NotificationDemandeEvent
@@ -191,7 +191,7 @@ public class NotificationService : INotificationService
         }
 
         // Notification à l'exportateur
-        var destinataireExportateur = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataireExportateur = string.Empty ?? string.Empty;
         if (!string.IsNullOrEmpty(destinataireExportateur))
         {
             await _notificationPublisher.PublishNotificationDemandeAsync(new NotificationDemandeEvent
@@ -204,7 +204,7 @@ public class NotificationService : INotificationService
         }
 
         // Notification au Président
-        var destinataireChambre = certificat.Partenaire?.Email ?? string.Empty;
+        var destinataireChambre = string.Empty ?? string.Empty;
         if (!string.IsNullOrEmpty(destinataireChambre))
         {
             await _notificationPublisher.PublishNotificationDemandeAsync(new NotificationDemandeEvent
@@ -228,7 +228,7 @@ public class NotificationService : INotificationService
             return;
         }
 
-        var destinataire = certificat.Exportateur?.Email ?? string.Empty;
+        var destinataire = string.Empty ?? string.Empty;
         if (string.IsNullOrEmpty(destinataire))
         {
             _logger.LogWarning("Aucun email trouvé pour l'exportateur du certificat {CertificatId}", certificatId);

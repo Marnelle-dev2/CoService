@@ -1,17 +1,15 @@
 namespace COService.Domain.Entities;
 
 /// <summary>
-/// Zone de production — table interne CO.
+/// Copie locale de l'état référentiel (tous statuts projet).
 /// </summary>
-public class ZoneProduction
+public class Etat
 {
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
-    public string Nom { get; set; } = string.Empty;
+    public string Libelle { get; set; } = string.Empty;
     public string? Description { get; set; }
-
-    /// <summary>NIU partenaire gestionnaire (Enrôlement), pas de FK locale.</summary>
-    public string? PartenaireNIU { get; set; }
+    public string? CodeEcran { get; set; }
 
     public DateTime? CreeLe { get; set; }
     public string? CreePar { get; set; }

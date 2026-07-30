@@ -16,7 +16,7 @@ namespace COService.Application.Services;
 internal class WorkflowOuessoService : IWorkflowChambreService
 {
     private readonly ICertificatOrigineRepository _certificatRepository;
-    private readonly IStatutCertificatRepository _statutRepository;
+    private readonly IEtatRepository _etatRepository;
     private readonly ICommentaireRepository _commentaireRepository;
     private readonly IAuthService _authService;
     private readonly ICertificateEventPublisher _eventPublisher;
@@ -27,7 +27,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
 
     public WorkflowOuessoService(
         ICertificatOrigineRepository certificatRepository,
-        IStatutCertificatRepository statutRepository,
+        IEtatRepository etatRepository,
         ICommentaireRepository commentaireRepository,
         IAuthService authService,
         ICertificateEventPublisher eventPublisher,
@@ -37,7 +37,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         ILogger<WorkflowService> logger)
     {
         _certificatRepository = certificatRepository;
-        _statutRepository = statutRepository;
+        _etatRepository = etatRepository;
         _commentaireRepository = commentaireRepository;
         _authService = authService;
         _eventPublisher = eventPublisher;
@@ -53,32 +53,30 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat est au statut Élaboré
-        var statutActuel = certificat.StatutCertificat?.Nom ?? "Non défini";
-        var codeStatutActuel = certificat.StatutCertificat?.Code ?? "NULL";
+        var codeStatutActuel = certificat.EtatCode ?? "NULL";
         if (codeStatutActuel != StatutsCertificats.Elabore)
         {
-            throw new InvalidOperationException($"Le certificat doit être au statut 'Élaboré' pour être soumis. Statut actuel: {statutActuel} (Code: {codeStatutActuel})");
+            throw new InvalidOperationException($"Le certificat doit être au statut 'Élaboré' pour être soumis. Statut actuel: {codeStatutActuel}");
         }
 
         // Vérifier qu'il y a au moins une ligne dans le certificat
-        if (certificat.CertificateLines == null || !certificat.CertificateLines.Any())
+        if (certificat.CertificatLignes == null || !certificat.CertificatLignes.Any())
         {
             throw new InvalidOperationException("Un certificat doit contenir au moins une ligne avant d'être soumis.");
         }
 
         // Récupérer le statut "Soumis"
-        var statutSoumis = await _statutRepository.GetByCodeAsync(StatutsCertificats.Soumis, cancellationToken)
+        var etatSoumis = await _etatRepository.GetByCodeAsync(StatutsCertificats.Soumis, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Soumis}' introuvable");
 
         // Effectuer la transition
-        certificat.StatutCertificatId = statutSoumis.Id;
-        certificat.StatutCertificat = statutSoumis;
+        certificat.EtatCode = etatSoumis.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -107,15 +105,15 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat est au statut Soumis
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Soumis)
+        if (certificat.EtatCode != StatutsCertificats.Soumis)
         {
-            throw new InvalidOperationException($"Le certificat doit être au statut 'Soumis' pour être contrôlé. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Le certificat doit être au statut 'Soumis' pour être contrôlé. Statut actuel: {certificat.EtatCode}");
         }
 
         // Vérifier le rôle (Contrôleur ou Superviseur - rôles 3 ou 4)
@@ -136,11 +134,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Vérifier que l'utilisateur appartient à la chambre de commerce d'Ouesso
-        if (certificat.PartenaireId.HasValue)
+        if (!string.IsNullOrEmpty(certificat.PartenaireNIU))
         {
             var appartientOrganisation = await _authService.VerifierOrganisationAsync(
                 userId, 
-                certificat.PartenaireId.Value, 
+                certificat.PartenaireNIU, 
                 cancellationToken);
             
             if (!appartientOrganisation)
@@ -150,12 +148,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Récupérer le statut "Contrôlé"
-        var statutControle = await _statutRepository.GetByCodeAsync(StatutsCertificats.Controle, cancellationToken)
+        var etatControle = await _etatRepository.GetByCodeAsync(StatutsCertificats.Controle, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Controle}' introuvable");
 
         // Effectuer la transition
-        certificat.StatutCertificatId = statutControle.Id;
-        certificat.StatutCertificat = statutControle;
+        certificat.EtatCode = etatControle.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -184,19 +181,16 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat est au statut Contrôlé
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Controle)
+        if (certificat.EtatCode != StatutsCertificats.Controle)
         {
-            var statutActuel = certificat.StatutCertificat != null 
-                ? $"{certificat.StatutCertificat.Nom} (Code: {certificat.StatutCertificat.Code})" 
-                : "Aucun statut";
-            _logger.LogWarning("Tentative d'approbation du certificat {CertificatId} avec un statut invalide. Statut actuel: {StatutActuel}", certificatId, statutActuel);
-            throw new InvalidOperationException($"Le certificat doit être au statut 'Contrôlé' (Code: {StatutsCertificats.Controle}) pour être approuvé. Statut actuel: {statutActuel}");
+            _logger.LogWarning("Tentative d'approbation du certificat {CertificatId} avec un statut invalide. Statut actuel: {StatutActuel}", certificatId, certificat.EtatCode);
+            throw new InvalidOperationException($"Le certificat doit être au statut 'Contrôlé' (Code: {StatutsCertificats.Controle}) pour être approuvé. Statut actuel: {certificat.EtatCode}");
         }
 
         // Vérifier le rôle (Contrôleur ou Superviseur - rôles 3 ou 4)
@@ -217,12 +211,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Récupérer le statut "Approuvé"
-        var statutApprouve = await _statutRepository.GetByCodeAsync(StatutsCertificats.Approuve, cancellationToken)
+        var etatApprouve = await _etatRepository.GetByCodeAsync(StatutsCertificats.Approuve, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Approuve}' introuvable");
 
         // Effectuer la transition
-        certificat.StatutCertificatId = statutApprouve.Id;
-        certificat.StatutCertificat = statutApprouve;
+        certificat.EtatCode = etatApprouve.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -250,18 +243,18 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         var certificat = await _certificatRepository.GetByIdAsync(certificatId, cancellationToken)
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
-        var ancienStatut = certificat.StatutCertificat?.Code ?? string.Empty;
+        var ancienStatut = certificat.EtatCode ?? string.Empty;
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat est au statut Approuvé
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Approuve)
+        if (certificat.EtatCode != StatutsCertificats.Approuve)
         {
-            throw new InvalidOperationException($"Le certificat doit être au statut 'Approuvé' pour être validé. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Le certificat doit être au statut 'Approuvé' pour être validé. Statut actuel: {certificat.EtatCode}");
         }
 
         // Vérifier le rôle (Président - rôle 6)
@@ -282,11 +275,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Vérifier que l'utilisateur appartient à la même organisation que le certificat
-        if (certificat.PartenaireId.HasValue)
+        if (!string.IsNullOrEmpty(certificat.PartenaireNIU))
         {
             var appartientOrganisation = await _authService.VerifierOrganisationAsync(
                 userId, 
-                certificat.PartenaireId.Value, 
+                certificat.PartenaireNIU, 
                 cancellationToken);
             
             if (!appartientOrganisation)
@@ -296,12 +289,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Récupérer le statut "Validé"
-        var statutValide = await _statutRepository.GetByCodeAsync(StatutsCertificats.Valide, cancellationToken)
+        var etatValide = await _etatRepository.GetByCodeAsync(StatutsCertificats.Valide, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Valide}' introuvable");
 
         // Effectuer la transition
-        certificat.StatutCertificatId = statutValide.Id;
-        certificat.StatutCertificat = statutValide;
+        certificat.EtatCode = etatValide.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -322,8 +314,8 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         {
             CertificatId = certificatId,
             CertificateNo = certificat.CertificateNo,
-            ExportateurId = certificat.ExportateurId,
-            PartenaireId = certificat.PartenaireId
+            ExportateurNIU = certificat.ExportateurNIU,
+            PartenaireNIU = certificat.PartenaireNIU
         }, cancellationToken);
 
         // Envoyer notification de validation
@@ -343,18 +335,18 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat peut être rejeté (Soumis, Contrôlé ou Approuvé)
-        var codeStatut = certificat.StatutCertificat?.Code;
+        var codeStatut = certificat.EtatCode;
         if (codeStatut != StatutsCertificats.Soumis &&
             codeStatut != StatutsCertificats.Controle &&
             codeStatut != StatutsCertificats.Approuve)
         {
-            throw new InvalidOperationException($"Le certificat ne peut être rejeté qu'aux statuts Soumis, Contrôlé ou Approuvé. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Le certificat ne peut être rejeté qu'aux statuts Soumis, Contrôlé ou Approuvé. Statut actuel: {certificat.EtatCode}");
         }
 
         // Vérifier le rôle selon le statut
@@ -386,11 +378,10 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Récupérer le statut "Rejeté"
-        var statutRejete = await _statutRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
+        var etatRejete = await _etatRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Rejete}' introuvable");
 
-        certificat.StatutCertificatId = statutRejete.Id;
-        certificat.StatutCertificat = statutRejete;
+        certificat.EtatCode = etatRejete.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -436,23 +427,22 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à la chambre de commerce d'Ouesso");
         }
 
         // Vérifier que le certificat est validé
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Valide)
+        if (certificat.EtatCode != StatutsCertificats.Valide)
         {
-            throw new InvalidOperationException($"Seuls les certificats validés peuvent faire l'objet d'une demande de modification. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Seuls les certificats validés peuvent faire l'objet d'une demande de modification. Statut actuel: {certificat.EtatCode}");
         }
 
         // Récupérer le statut "Modification"
-        var statutModification = await _statutRepository.GetByCodeAsync(StatutsCertificats.Modification, cancellationToken)
+        var etatModification = await _etatRepository.GetByCodeAsync(StatutsCertificats.Modification, cancellationToken)
             ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Modification}' introuvable");
 
-        certificat.StatutCertificatId = statutModification.Id;
-        certificat.StatutCertificat = statutModification;
+        certificat.EtatCode = etatModification.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -493,12 +483,12 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             return false;
         }
 
-        var codeStatutActuel = certificat.StatutCertificat?.Code ?? string.Empty;
+        var codeStatutActuel = certificat.EtatCode ?? string.Empty;
         var roles = await _authService.GetRolesAsync(userId, cancellationToken);
 
         // Transitions valides pour Ouesso (identique à Pointe-Noire)
@@ -527,12 +517,12 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         }
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             return new List<string>();
         }
 
-        var codeStatut = certificat.StatutCertificat?.Code ?? string.Empty;
+        var codeStatut = certificat.EtatCode ?? string.Empty;
         var roles = await _authService.GetRolesAsync(userId, cancellationToken);
         var transitions = new List<string>();
 

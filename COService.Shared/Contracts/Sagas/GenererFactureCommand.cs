@@ -7,8 +7,8 @@ public record GenererFactureCommand
 {
     public Guid CertificatId { get; init; }
     public string CertificateNo { get; init; } = string.Empty;
-    public Guid? ExportateurId { get; init; }
-    public Guid? PartenaireId { get; init; }
+    public string? ExportateurNIU { get; init; }
+    public string? PartenaireNIU { get; init; }
 }
 
 public record FactureGenereeResponse

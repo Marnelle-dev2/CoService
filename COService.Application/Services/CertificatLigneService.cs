@@ -8,15 +8,15 @@ namespace COService.Application.Services;
 /// <summary>
 /// Service pour la gestion des lignes de certificat
 /// </summary>
-public class CertificateLineService : ICertificateLineService
+public class CertificatLigneService : ICertificatLigneService
 {
-    private readonly ICertificateLineRepository _repository;
+    private readonly ICertificatLigneRepository _repository;
     private readonly ICertificatOrigineRepository _certificatRepository;
     private readonly IMapper _mapper;
     private readonly IUnitOfWork _unitOfWork;
 
-    public CertificateLineService(
-        ICertificateLineRepository repository,
+    public CertificatLigneService(
+        ICertificatLigneRepository repository,
         ICertificatOrigineRepository certificatRepository,
         IMapper mapper,
         IUnitOfWork unitOfWork)
@@ -27,38 +27,38 @@ public class CertificateLineService : ICertificateLineService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<CertificateLineDto> CreerLigneAsync(Guid certificateId, CreerCertificateLineDto dto, string? utilisateur = null, CancellationToken cancellationToken = default)
+    public async Task<CertificatLigneDto> CreerLigneAsync(Guid certificatId, CreerCertificatLigneDto dto, string? utilisateur = null, CancellationToken cancellationToken = default)
     {
-        // Vérifier que le certificat existe
-        var certificat = await _certificatRepository.GetByIdAsync(certificateId, cancellationToken);
+        var certificat = await _certificatRepository.GetByIdAsync(certificatId, cancellationToken);
         if (certificat == null)
         {
-            throw new KeyNotFoundException($"Certificat avec l'ID {certificateId} introuvable.");
+            throw new KeyNotFoundException($"Certificat avec l'ID {certificatId} introuvable.");
         }
 
-        var ligne = _mapper.Map<CertificateLine>(dto);
-        ligne.CertificateId = certificateId;
+        var ligne = _mapper.Map<CertificatLigne>(dto);
+        ligne.CertificatId = certificatId;
         ligne.CreePar = utilisateur;
+        ligne.CreeLe = DateTime.UtcNow;
 
         await _repository.AddAsync(ligne, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<CertificateLineDto>(ligne);
+        return _mapper.Map<CertificatLigneDto>(ligne);
     }
 
-    public async Task<IEnumerable<CertificateLineDto>> GetLignesByCertificateIdAsync(Guid certificateId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<CertificatLigneDto>> GetLignesByCertificatIdAsync(Guid certificatId, CancellationToken cancellationToken = default)
     {
-        var lignes = await _repository.GetByCertificateIdAsync(certificateId, cancellationToken);
-        return _mapper.Map<IEnumerable<CertificateLineDto>>(lignes);
+        var lignes = await _repository.GetByCertificatIdAsync(certificatId, cancellationToken);
+        return _mapper.Map<IEnumerable<CertificatLigneDto>>(lignes);
     }
 
-    public async Task<CertificateLineDto?> GetLigneByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<CertificatLigneDto?> GetLigneByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var ligne = await _repository.GetByIdAsync(id, cancellationToken);
-        return ligne == null ? null : _mapper.Map<CertificateLineDto>(ligne);
+        return ligne == null ? null : _mapper.Map<CertificatLigneDto>(ligne);
     }
 
-    public async Task<CertificateLineDto> ModifierLigneAsync(Guid id, ModifierCertificateLineDto dto, string? utilisateur = null, CancellationToken cancellationToken = default)
+    public async Task<CertificatLigneDto> ModifierLigneAsync(Guid id, ModifierCertificatLigneDto dto, string? utilisateur = null, CancellationToken cancellationToken = default)
     {
         var ligne = await _repository.GetByIdAsync(id, cancellationToken);
         if (ligne == null)
@@ -73,7 +73,7 @@ public class CertificateLineService : ICertificateLineService
         _repository.Update(ligne);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<CertificateLineDto>(ligne);
+        return _mapper.Map<CertificatLigneDto>(ligne);
     }
 
     public async Task SupprimerLigneAsync(Guid id, CancellationToken cancellationToken = default)
@@ -88,4 +88,3 @@ public class CertificateLineService : ICertificateLineService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
-

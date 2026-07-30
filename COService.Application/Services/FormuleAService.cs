@@ -15,9 +15,8 @@ namespace COService.Application.Services;
 public class FormuleAService : IFormuleAService
 {
     private readonly ICertificatOrigineRepository _certificatRepository;
-    private readonly IStatutCertificatRepository _statutRepository;
+    private readonly IEtatRepository _etatRepository;
     private readonly ICommentaireRepository _commentaireRepository;
-    private readonly IPartenaireRepository _partenaireRepository;
     private readonly IAuthService _authService;
     private readonly ICertificateEventPublisher _eventPublisher;
     private readonly INotificationService _notificationService;
@@ -27,9 +26,8 @@ public class FormuleAService : IFormuleAService
 
     public FormuleAService(
         ICertificatOrigineRepository certificatRepository,
-        IStatutCertificatRepository statutRepository,
+        IEtatRepository etatRepository,
         ICommentaireRepository commentaireRepository,
-        IPartenaireRepository partenaireRepository,
         IAuthService authService,
         ICertificateEventPublisher eventPublisher,
         INotificationService notificationService,
@@ -38,9 +36,8 @@ public class FormuleAService : IFormuleAService
         ILogger<FormuleAService> logger)
     {
         _certificatRepository = certificatRepository;
-        _statutRepository = statutRepository;
+        _etatRepository = etatRepository;
         _commentaireRepository = commentaireRepository;
-        _partenaireRepository = partenaireRepository;
         _authService = authService;
         _eventPublisher = eventPublisher;
         _notificationService = notificationService;
@@ -70,11 +67,11 @@ public class FormuleAService : IFormuleAService
         }
 
         // 4. Récupérer le statut "Formule A soumise"
-        var statutFormuleASoumise = await _statutRepository.GetByCodeAsync(StatutsCertificats.FormuleASoumise, cancellationToken)
+        var etatFormuleASoumise = await _etatRepository.GetByCodeAsync(StatutsCertificats.FormuleASoumise, cancellationToken)
             ?? throw new InvalidOperationException("Statut 'Formule A soumise' introuvable dans la base de données");
 
         // 5. Mettre à jour le certificat
-        certificat.StatutCertificatId = statutFormuleASoumise.Id;
+        certificat.EtatCode = etatFormuleASoumise.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -98,7 +95,7 @@ public class FormuleAService : IFormuleAService
             ?? throw new KeyNotFoundException($"Certificat {id} introuvable");
 
         // Vérifier que c'est une Formule A au statut "soumise"
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.FormuleASoumise)
+        if (certificat.EtatCode != StatutsCertificats.FormuleASoumise)
         {
             throw new InvalidOperationException($"Le certificat doit être au statut '{StatutsCertificats.FormuleASoumise}' pour être contrôlé");
         }
@@ -120,17 +117,17 @@ public class FormuleAService : IFormuleAService
         }
 
         // Vérifier que le certificat appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Seule la chambre de commerce d'Ouesso peut gérer les Formules A");
         }
 
         // Récupérer le statut "Formule A contrôlée"
-        var statutControlee = await _statutRepository.GetByCodeAsync(StatutsCertificats.FormuleAControlee, cancellationToken)
+        var etatControlee = await _etatRepository.GetByCodeAsync(StatutsCertificats.FormuleAControlee, cancellationToken)
             ?? throw new InvalidOperationException("Statut 'Formule A contrôlée' introuvable");
 
         // Mettre à jour le statut
-        certificat.StatutCertificatId = statutControlee.Id;
+        certificat.EtatCode = etatControlee.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -152,7 +149,7 @@ public class FormuleAService : IFormuleAService
             ?? throw new KeyNotFoundException($"Certificat {id} introuvable");
 
         // Vérifier que c'est une Formule A au statut "contrôlée"
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.FormuleAControlee)
+        if (certificat.EtatCode != StatutsCertificats.FormuleAControlee)
         {
             throw new InvalidOperationException($"Le certificat doit être au statut '{StatutsCertificats.FormuleAControlee}' pour être approuvé");
         }
@@ -174,10 +171,10 @@ public class FormuleAService : IFormuleAService
         }
 
         // Récupérer le statut "Formule A approuvée"
-        var statutApprouvee = await _statutRepository.GetByCodeAsync(StatutsCertificats.FormuleAApprouvee, cancellationToken)
+        var etatApprouvee = await _etatRepository.GetByCodeAsync(StatutsCertificats.FormuleAApprouvee, cancellationToken)
             ?? throw new InvalidOperationException("Statut 'Formule A approuvée' introuvable");
 
-        certificat.StatutCertificatId = statutApprouvee.Id;
+        certificat.EtatCode = etatApprouvee.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -199,7 +196,7 @@ public class FormuleAService : IFormuleAService
             ?? throw new KeyNotFoundException($"Certificat {id} introuvable");
 
         // Vérifier que c'est une Formule A au statut "approuvée"
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.FormuleAApprouvee)
+        if (certificat.EtatCode != StatutsCertificats.FormuleAApprouvee)
         {
             throw new InvalidOperationException($"Le certificat doit être au statut '{StatutsCertificats.FormuleAApprouvee}' pour être validé");
         }
@@ -213,7 +210,7 @@ public class FormuleAService : IFormuleAService
 
         // Vérifier que l'utilisateur appartient à la même organisation que le certificat
         var userInfo = await _authService.GetUserInfoAsync(userId, cancellationToken);
-        if (userInfo?.OrganisationId != certificat.PartenaireId)
+        if (string.IsNullOrEmpty(certificat.PartenaireNIU) || !string.Equals(userInfo?.OrganisationCode, certificat.PartenaireNIU, StringComparison.OrdinalIgnoreCase))
         {
             throw new UnauthorizedAccessException("Le Président doit appartenir à la même chambre de commerce que le certificat");
         }
@@ -226,10 +223,10 @@ public class FormuleAService : IFormuleAService
         }
 
         // Récupérer le statut "Formule A validée"
-        var statutValidee = await _statutRepository.GetByCodeAsync(StatutsCertificats.FormuleAValidee, cancellationToken)
+        var etatValidee = await _etatRepository.GetByCodeAsync(StatutsCertificats.FormuleAValidee, cancellationToken)
             ?? throw new InvalidOperationException("Statut 'Formule A validée' introuvable");
 
-        certificat.StatutCertificatId = statutValidee.Id;
+        certificat.EtatCode = etatValidee.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -250,8 +247,8 @@ public class FormuleAService : IFormuleAService
         {
             CertificatId = id,
             CertificateNo = certificat.CertificateNo,
-            ExportateurId = certificat.ExportateurId,
-            PartenaireId = certificat.PartenaireId
+            ExportateurNIU = certificat.ExportateurNIU,
+            PartenaireNIU = certificat.PartenaireNIU
         }, cancellationToken);
 
         // Envoyer notification Formule A validée
@@ -272,7 +269,7 @@ public class FormuleAService : IFormuleAService
             ?? throw new KeyNotFoundException($"Certificat {id} introuvable");
 
         // Vérifier que c'est une Formule A (statuts 12, 13 ou 14)
-        var codeStatut = certificat.StatutCertificat?.Code;
+        var codeStatut = certificat.EtatCode;
         if (codeStatut != StatutsCertificats.FormuleASoumise &&
             codeStatut != StatutsCertificats.FormuleAControlee &&
             codeStatut != StatutsCertificats.FormuleAApprouvee)
@@ -309,10 +306,10 @@ public class FormuleAService : IFormuleAService
         }
 
         // Récupérer le statut "Rejeté"
-        var statutRejete = await _statutRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
+        var etatRejete = await _etatRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
             ?? throw new InvalidOperationException("Statut 'Rejeté' introuvable");
 
-        certificat.StatutCertificatId = statutRejete.Id;
+        certificat.EtatCode = etatRejete.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -349,70 +346,57 @@ public class FormuleAService : IFormuleAService
         }
 
         // 1. Vérifier que le CO est validé (statut 8)
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Valide)
+        if (certificat.EtatCode != StatutsCertificats.Valide)
         {
-            _logger.LogWarning("Certificat {CertificatId} n'est pas validé (statut actuel: {Statut})", certificatId, certificat.StatutCertificat?.Code);
+            _logger.LogWarning("Certificat {CertificatId} n'est pas validé (statut actuel: {Statut})", certificatId, certificat.EtatCode);
             return false;
         }
 
         // 2. Vérifier que le CO appartient à Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             _logger.LogWarning("Certificat {CertificatId} n'appartient pas à Ouesso", certificatId);
             return false;
         }
 
         // 3. Vérifier l'autorisation de l'exportateur
-        if (certificat.ExportateurId == null)
+        if (string.IsNullOrEmpty(certificat.ExportateurNIU))
         {
             return false;
         }
 
-        var autorise = await VerifierAutorisationFormuleAAsync(certificatId, certificat.ExportateurId.Value, cancellationToken);
+        var autorise = await VerifierAutorisationFormuleAAsync(certificatId, certificat.ExportateurNIU, cancellationToken);
         if (!autorise)
         {
-            _logger.LogWarning("Exportateur {ExportateurId} n'est pas autorisé à créer une Formule A pour le certificat {CertificatId}", certificat.ExportateurId, certificatId);
+            _logger.LogWarning("Exportateur {ExportateurNIU} n'est pas autorisé à créer une Formule A pour le certificat {CertificatId}", certificat.ExportateurNIU, certificatId);
             return false;
         }
 
         return true;
     }
 
-    public async Task<bool> VerifierChambreAutoriseeFormuleAAsync(Guid partenaireId, CancellationToken cancellationToken = default)
+    public Task<bool> VerifierChambreAutoriseeFormuleAAsync(string partenaireNIU, CancellationToken cancellationToken = default)
     {
-        var partenaire = await _partenaireRepository.GetByIdAsync(partenaireId, cancellationToken);
-        if (partenaire == null)
-        {
-            return false;
-        }
-
-        // Vérifier que c'est Ouesso via le code partenaire
-        return ChambresCommerce.EstOuesso(partenaire.CodePartenaire);
+        // Vérifier que c'est Ouesso via le NIU du partenaire (chambre de commerce)
+        return Task.FromResult(ChambresCommerce.EstOuesso(partenaireNIU));
     }
 
-    public async Task<bool> VerifierAutorisationFormuleAAsync(Guid certificatId, Guid exportateurId, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifierAutorisationFormuleAAsync(Guid certificatId, string exportateurNIU, CancellationToken cancellationToken = default)
     {
         var certificat = await _certificatRepository.GetByIdAsync(certificatId, cancellationToken);
-        if (certificat == null || certificat.Exportateur == null)
+        if (certificat == null || string.IsNullOrEmpty(certificat.ExportateurNIU))
         {
             return false;
         }
 
         // Vérifier que l'exportateur est bien celui du certificat
-        if (certificat.ExportateurId != exportateurId)
+        if (!string.Equals(certificat.ExportateurNIU, exportateurNIU, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        // Vérifier le type d'exportateur (type 3) OU que c'est le propriétaire
-        // TypeExportateur = 3 permet de créer des Formules A
-        if (certificat.Exportateur.TypeExportateur == 3)
-        {
-            return true;
-        }
-
-        // Sinon, vérifier que l'exportateur est le propriétaire du CO
-        // (cela sera vérifié via l'userId dans PeutCreerFormuleAAsync)
-        return true; // Le propriétaire peut toujours créer une Formule A
+        // Le propriétaire du certificat peut toujours créer une Formule A
+        // (le type d'exportateur est désormais géré côté Enrôlement/Organisation)
+        return true;
     }
 }

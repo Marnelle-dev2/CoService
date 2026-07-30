@@ -7,31 +7,31 @@ namespace COService.API.Endpoints;
 /// <summary>
 /// Endpoints pour la gestion des lignes de certificat
 /// </summary>
-public static class CertificateLineEndpoints
+public static class CertificatLigneEndpoints
 {
-    public static void MapCertificateLineEndpoints(this IEndpointRouteBuilder app)
+    public static void MapCertificatLigneEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/certificats/{certificateId:guid}/lignes")
+        var group = app.MapGroup("/api/certificats/{certificatId:guid}/lignes")
             .WithTags("Lignes de certificat");
 
-        // GET /api/certificats/{certificateId}/lignes - Liste toutes les lignes d'un certificat
+        // GET /api/certificats/{certificatId}/lignes - Liste toutes les lignes d'un certificat
         group.MapGet("/", async (
-            Guid certificateId,
-            ICertificateLineService service,
+            Guid certificatId,
+            ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
-            var lignes = await service.GetLignesByCertificateIdAsync(certificateId, cancellationToken);
+            var lignes = await service.GetLignesByCertificatIdAsync(certificatId, cancellationToken);
             return Results.Ok(lignes);
         })
-        .WithName("GetLignesByCertificateId")
+        .WithName("GetLignesByCertificatId")
         .WithSummary("Récupère toutes les lignes d'un certificat")
-        .Produces<IEnumerable<CertificateLineDto>>(StatusCodes.Status200OK);
+        .Produces<IEnumerable<CertificatLigneDto>>(StatusCodes.Status200OK);
 
-        // GET /api/certificats/{certificateId}/lignes/{id} - Récupère une ligne par ID
+        // GET /api/certificats/{certificatId}/lignes/{id} - Récupère une ligne par ID
         group.MapGet("/{id:guid}", async (
-            Guid certificateId,
+            Guid certificatId,
             Guid id,
-            ICertificateLineService service,
+            ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
             var ligne = await service.GetLigneByIdAsync(id, cancellationToken);
@@ -41,21 +41,21 @@ public static class CertificateLineEndpoints
         })
         .WithName("GetLigneById")
         .WithSummary("Récupère une ligne par son identifiant")
-        .Produces<CertificateLineDto>(StatusCodes.Status200OK)
+        .Produces<CertificatLigneDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        // POST /api/certificats/{certificateId}/lignes - Crée une nouvelle ligne
+        // POST /api/certificats/{certificatId}/lignes - Crée une nouvelle ligne
         group.MapPost("/", async (
-            Guid certificateId,
-            [FromBody] CreerCertificateLineDto dto,
-            ICertificateLineService service,
+            Guid certificatId,
+            [FromBody] CreerCertificatLigneDto dto,
+            ICertificatLigneService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
             try
             {
-                var ligne = await service.CreerLigneAsync(certificateId, dto, utilisateur, cancellationToken);
-                return Results.Created($"/api/certificats/{certificateId}/lignes/{ligne.Id}", ligne);
+                var ligne = await service.CreerLigneAsync(certificatId, dto, utilisateur, cancellationToken);
+                return Results.Created($"/api/certificats/{certificatId}/lignes/{ligne.Id}", ligne);
             }
             catch (KeyNotFoundException ex)
             {
@@ -64,16 +64,16 @@ public static class CertificateLineEndpoints
         })
         .WithName("CreerLigne")
         .WithSummary("Crée une nouvelle ligne de certificat")
-        .Accepts<CreerCertificateLineDto>("application/json")
-        .Produces<CertificateLineDto>(StatusCodes.Status201Created)
+        .Accepts<CreerCertificatLigneDto>("application/json")
+        .Produces<CertificatLigneDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status404NotFound);
 
-        // PUT /api/certificats/{certificateId}/lignes/{id} - Modifie une ligne
+        // PUT /api/certificats/{certificatId}/lignes/{id} - Modifie une ligne
         group.MapPut("/{id:guid}", async (
-            Guid certificateId,
+            Guid certificatId,
             Guid id,
-            [FromBody] ModifierCertificateLineDto dto,
-            ICertificateLineService service,
+            [FromBody] ModifierCertificatLigneDto dto,
+            ICertificatLigneService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
@@ -89,15 +89,15 @@ public static class CertificateLineEndpoints
         })
         .WithName("ModifierLigne")
         .WithSummary("Modifie une ligne de certificat")
-        .Accepts<ModifierCertificateLineDto>("application/json")
-        .Produces<CertificateLineDto>(StatusCodes.Status200OK)
+        .Accepts<ModifierCertificatLigneDto>("application/json")
+        .Produces<CertificatLigneDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        // DELETE /api/certificats/{certificateId}/lignes/{id} - Supprime une ligne
+        // DELETE /api/certificats/{certificatId}/lignes/{id} - Supprime une ligne
         group.MapDelete("/{id:guid}", async (
-            Guid certificateId,
+            Guid certificatId,
             Guid id,
-            ICertificateLineService service,
+            ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
             try
@@ -116,4 +116,3 @@ public static class CertificateLineEndpoints
         .Produces(StatusCodes.Status404NotFound);
     }
 }
-

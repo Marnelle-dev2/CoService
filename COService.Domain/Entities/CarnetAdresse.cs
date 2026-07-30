@@ -12,6 +12,11 @@ public class CarnetAdresse
     public Guid Id { get; set; }
 
     /// <summary>
+    /// Code unique (clé de sync référentiel)
+    /// </summary>
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>
     /// Nom du destinataire
     /// </summary>
     public string Nom { get; set; } = string.Empty;

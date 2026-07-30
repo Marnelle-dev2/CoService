@@ -14,16 +14,12 @@ public class COServiceDbContext : DbContext
     }
 
     public DbSet<CertificatOrigine> CertificatsOrigine { get; set; }
-    public DbSet<CertificateLine> CertificateLines { get; set; }
+    public DbSet<CertificatLigne> CertificatLignes { get; set; }
     public DbSet<CertificateValidation> CertificateValidations { get; set; }
     public DbSet<Commentaire> Commentaires { get; set; }
     public DbSet<Abonnement> Abonnements { get; set; }
     public DbSet<CertificateType> CertificateTypes { get; set; }
-    
-    // Organisations (synchronisées depuis Enrolement)
-    public DbSet<Partenaire> Partenaires { get; set; }
-    public DbSet<Exportateur> Exportateurs { get; set; }
-    
+
     // Référentiels (synchronisés depuis Référentiel global)
     public DbSet<Departement> Departements { get; set; }
     public DbSet<Pays> Pays { get; set; }
@@ -47,9 +43,10 @@ public class COServiceDbContext : DbContext
     
     // Entités propres au CO
     public DbSet<ZoneProduction> ZonesProductions { get; set; }
-    public DbSet<TypePartenaire> TypesPartenaires { get; set; }
     public DbSet<CarnetAdresse> CarnetsAdresses { get; set; }
-    public DbSet<StatutCertificat> StatutsCertificats { get; set; }
+    public DbSet<Etat> Etats { get; set; }
+    public DbSet<BattantPavillon> BattantsPavillon { get; set; }
+    public DbSet<Produit> Produits { get; set; }
 
     /// <summary>États des sagas MassTransit (post-validation CO).</summary>
     public DbSet<COService.Infrastructure.Sagas.CertificatPostValidationState> SagasCertificatPostValidation { get; set; }

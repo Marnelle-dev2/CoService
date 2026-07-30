@@ -38,8 +38,8 @@ public class CertificatPostValidationStateMachine : MassTransitStateMachine<Cert
                 .Then(ctx =>
                 {
                     ctx.Saga.CertificateNo = ctx.Message.CertificateNo;
-                    ctx.Saga.ExportateurId = ctx.Message.ExportateurId;
-                    ctx.Saga.PartenaireId = ctx.Message.PartenaireId;
+                    ctx.Saga.ExportateurNIU = ctx.Message.ExportateurNIU;
+                    ctx.Saga.PartenaireNIU = ctx.Message.PartenaireNIU;
                     ctx.Saga.CreatedAt = DateTime.UtcNow;
                     ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     logger.LogInformation(
@@ -50,8 +50,8 @@ public class CertificatPostValidationStateMachine : MassTransitStateMachine<Cert
                 {
                     CertificatId = ctx.Saga.CorrelationId,
                     CertificateNo = ctx.Saga.CertificateNo,
-                    ExportateurId = ctx.Saga.ExportateurId,
-                    PartenaireId = ctx.Saga.PartenaireId
+                    ExportateurNIU = ctx.Saga.ExportateurNIU,
+                    PartenaireNIU = ctx.Saga.PartenaireNIU
                 })
                 .TransitionTo(FacturationEnCours)
         );
@@ -116,8 +116,8 @@ public class CertificatPostValidationStateMachine : MassTransitStateMachine<Cert
                 {
                     CertificatId = ctx.Saga.CorrelationId,
                     CertificateNo = ctx.Saga.CertificateNo,
-                    ExportateurId = ctx.Saga.ExportateurId,
-                    PartenaireId = ctx.Saga.PartenaireId,
+                    ExportateurNIU = ctx.Saga.ExportateurNIU,
+                    PartenaireNIU = ctx.Saga.PartenaireNIU,
                     NumeroFacture = ctx.Saga.NumeroFacture,
                     PdfUrl = ctx.Saga.PdfUrl
                 })

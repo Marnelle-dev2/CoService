@@ -4,55 +4,57 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace COService.Infrastructure.Data.Configurations;
 
-public class ZoneProductionConfiguration : IEntityTypeConfiguration<ZoneProduction>
+/// <summary>
+/// Configuration EF Core pour l'entité Etat (remplace StatutCertificat).
+/// </summary>
+public class EtatConfiguration : IEntityTypeConfiguration<Etat>
 {
-    public void Configure(EntityTypeBuilder<ZoneProduction> builder)
+    public void Configure(EntityTypeBuilder<Etat> builder)
     {
-        builder.ToTable("ZonesProductions");
+        builder.ToTable("Etats");
 
-        builder.HasKey(zp => zp.Id);
+        builder.HasKey(e => e.Id);
 
-        builder.Property(zp => zp.Id)
+        builder.Property(e => e.Id)
             .HasColumnName("id")
             .IsRequired();
 
-        builder.Property(zp => zp.Code)
+        builder.Property(e => e.Code)
             .HasColumnName("Code")
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(zp => zp.Code)
+        builder.HasIndex(e => e.Code)
             .IsUnique()
-            .HasDatabaseName("IX_ZonesProductions_Code");
+            .HasDatabaseName("IX_Etats_Code");
 
-        builder.Property(zp => zp.Nom)
-            .HasColumnName("Nom")
+        builder.Property(e => e.Libelle)
+            .HasColumnName("Libelle")
             .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(zp => zp.Description)
+        builder.Property(e => e.Description)
             .HasColumnName("Description")
             .HasMaxLength(500);
 
-        // NIU du partenaire gestionnaire (Enrôlement) — pas de FK locale
-        builder.Property(zp => zp.PartenaireNIU)
-            .HasColumnName("PartenaireNIU")
+        builder.Property(e => e.CodeEcran)
+            .HasColumnName("CodeEcran")
             .HasMaxLength(50);
 
         // Champs d'audit
-        builder.Property(zp => zp.CreeLe)
+        builder.Property(e => e.CreeLe)
             .HasColumnName("CreeLe")
             .HasColumnType("datetime2(7)");
 
-        builder.Property(zp => zp.CreePar)
+        builder.Property(e => e.CreePar)
             .HasColumnName("CreePar")
             .HasColumnType("nvarchar(max)");
 
-        builder.Property(zp => zp.ModifierLe)
+        builder.Property(e => e.ModifierLe)
             .HasColumnName("ModifierLe")
             .HasColumnType("datetime2(7)");
 
-        builder.Property(zp => zp.ModifiePar)
+        builder.Property(e => e.ModifiePar)
             .HasColumnName("ModifiePar")
             .HasColumnType("nvarchar(max)");
     }

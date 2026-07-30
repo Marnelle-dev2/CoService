@@ -149,11 +149,11 @@ public class AuthServiceClientWrapper : IAuthServiceClient
         }
     }
 
-    public async Task<bool> VerifierOrganisationAsync(string userId, Guid organisationId, CancellationToken cancellationToken = default)
+    public async Task<bool> VerifierOrganisationAsync(string userId, string organisationCode, CancellationToken cancellationToken = default)
     {
         if (_bypassMode)
         {
-            _logger.LogInformation("Mode bypass: vérification d'organisation toujours vraie pour {UserId}, organisation {OrganisationId}", userId, organisationId);
+            _logger.LogInformation("Mode bypass: vérification d'organisation toujours vraie pour {UserId}, organisation {OrganisationCode}", userId, organisationCode);
             return true;
         }
 
@@ -165,11 +165,11 @@ public class AuthServiceClientWrapper : IAuthServiceClient
 
         try
         {
-            return await _client.VerifierOrganisationAsync(userId, organisationId, cancellationToken);
+            return await _client.VerifierOrganisationAsync(userId, organisationCode, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de la vérification de l'organisation {OrganisationId} pour l'utilisateur {UserId}. Utilisation du mode bypass par défaut.", organisationId, userId);
+            _logger.LogError(ex, "Erreur lors de la vérification de l'organisation {OrganisationCode} pour l'utilisateur {UserId}. Utilisation du mode bypass par défaut.", organisationCode, userId);
             // En cas d'erreur de connexion, accepter l'organisation pour permettre les tests
             return true;
         }

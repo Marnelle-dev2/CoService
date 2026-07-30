@@ -8,7 +8,7 @@ public class CertificatValideEvent
 {
     public Guid CertificatId { get; set; }
     public string CertificateNo { get; set; } = string.Empty;
-    public Guid? ExportateurId { get; set; }
-    public Guid? PartenaireId { get; set; }
+    public string? ExportateurNIU { get; set; }
+    public string? PartenaireNIU { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

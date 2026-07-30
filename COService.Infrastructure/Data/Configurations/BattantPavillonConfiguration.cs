@@ -4,51 +4,54 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace COService.Infrastructure.Data.Configurations;
 
-public class DepartementConfiguration : IEntityTypeConfiguration<Departement>
+/// <summary>
+/// Configuration EF Core pour l'entité BattantPavillon (table locale CO).
+/// </summary>
+public class BattantPavillonConfiguration : IEntityTypeConfiguration<BattantPavillon>
 {
-    public void Configure(EntityTypeBuilder<Departement> builder)
+    public void Configure(EntityTypeBuilder<BattantPavillon> builder)
     {
-        builder.ToTable("Departements");
+        builder.ToTable("BattantsPavillon");
 
-        builder.HasKey(d => d.Id);
+        builder.HasKey(bp => bp.Id);
 
-        builder.Property(d => d.Id)
+        builder.Property(bp => bp.Id)
             .HasColumnName("id")
             .IsRequired();
 
-        builder.Property(d => d.Code)
+        builder.Property(bp => bp.Code)
             .HasColumnName("Code")
-            .HasMaxLength(10)
+            .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(d => d.Code)
+        builder.HasIndex(bp => bp.Code)
             .IsUnique()
-            .HasDatabaseName("IX_Departements_Code");
+            .HasDatabaseName("IX_BattantsPavillon_Code");
 
-        builder.Property(d => d.Nom)
-            .HasColumnName("Nom")
+        builder.Property(bp => bp.Designation)
+            .HasColumnName("Designation")
             .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(d => d.Actif)
+        builder.Property(bp => bp.Actif)
             .HasColumnName("Actif")
             .IsRequired()
             .HasDefaultValue(true);
 
         // Champs d'audit
-        builder.Property(d => d.CreeLe)
+        builder.Property(bp => bp.CreeLe)
             .HasColumnName("CreeLe")
             .HasColumnType("datetime2(7)");
 
-        builder.Property(d => d.CreePar)
+        builder.Property(bp => bp.CreePar)
             .HasColumnName("CreePar")
             .HasColumnType("nvarchar(max)");
 
-        builder.Property(d => d.ModifierLe)
+        builder.Property(bp => bp.ModifierLe)
             .HasColumnName("ModifierLe")
             .HasColumnType("datetime2(7)");
 
-        builder.Property(d => d.ModifiePar)
+        builder.Property(bp => bp.ModifiePar)
             .HasColumnName("ModifiePar")
             .HasColumnType("nvarchar(max)");
     }

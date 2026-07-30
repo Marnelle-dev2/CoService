@@ -1,17 +1,14 @@
 namespace COService.Domain.Entities;
 
 /// <summary>
-/// Zone de production — table interne CO.
+/// Pavillon du navire (table locale CO).
 /// </summary>
-public class ZoneProduction
+public class BattantPavillon
 {
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
-    public string Nom { get; set; } = string.Empty;
-    public string? Description { get; set; }
-
-    /// <summary>NIU partenaire gestionnaire (Enrôlement), pas de FK locale.</summary>
-    public string? PartenaireNIU { get; set; }
+    public string Designation { get; set; } = string.Empty;
+    public bool Actif { get; set; } = true;
 
     public DateTime? CreeLe { get; set; }
     public string? CreePar { get; set; }

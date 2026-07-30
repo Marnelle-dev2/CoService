@@ -27,9 +27,9 @@ public class PDFGenerationService : IPDFGenerationService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que le certificat est validé
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.Valide)
+        if (certificat.EtatCode != StatutsCertificats.Valide)
         {
-            throw new InvalidOperationException($"Le certificat doit être validé pour générer le PDF. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Le certificat doit être validé pour générer le PDF. Statut actuel: {certificat.EtatCode}");
         }
 
         _logger.LogInformation("Génération PDF CO standard pour le certificat {CertificatId}", certificatId);
@@ -45,7 +45,7 @@ public class PDFGenerationService : IPDFGenerationService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que c'est bien Ouesso
-        if (!ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire))
+        if (!ChambresCommerce.EstOuesso(certificat.PartenaireNIU))
         {
             throw new InvalidOperationException("Ce certificat n'appartient pas à Ouesso");
         }
@@ -62,9 +62,9 @@ public class PDFGenerationService : IPDFGenerationService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Vérifier que c'est une Formule A validée
-        if (certificat.StatutCertificat?.Code != StatutsCertificats.FormuleAValidee)
+        if (certificat.EtatCode != StatutsCertificats.FormuleAValidee)
         {
-            throw new InvalidOperationException($"Le certificat doit être une Formule A validée pour générer le PDF. Statut actuel: {certificat.StatutCertificat?.Nom}");
+            throw new InvalidOperationException($"Le certificat doit être une Formule A validée pour générer le PDF. Statut actuel: {certificat.EtatCode}");
         }
 
         _logger.LogInformation("Génération PDF Formule A pour le certificat {CertificatId}", certificatId);
@@ -127,7 +127,7 @@ public class PDFGenerationService : IPDFGenerationService
             ?? throw new KeyNotFoundException($"Certificat {certificatId} introuvable");
 
         // Détecter le type selon le statut et la formule
-        var codeStatut = certificat.StatutCertificat?.Code;
+        var codeStatut = certificat.EtatCode;
 
         // Formule A (statuts 12-15)
         if (codeStatut == StatutsCertificats.FormuleASoumise ||
@@ -144,7 +144,7 @@ public class PDFGenerationService : IPDFGenerationService
             "EUR-1" => await GenererPDFEUR1Async(certificatId, cancellationToken),
             "CO+ALC" => await GenererPDFALCAsync(certificatId, cancellationToken),
             "B" => await GenererPDFFormuleACargoAsync(certificatId, cancellationToken),
-            _ => ChambresCommerce.EstOuesso(certificat.Partenaire?.CodePartenaire)
+            _ => ChambresCommerce.EstOuesso(certificat.PartenaireNIU)
                 ? await GenererPDFCertificatOuessoAsync(certificatId, cancellationToken)
                 : await GenererPDFCertificatOrigineAsync(certificatId, cancellationToken)
         };

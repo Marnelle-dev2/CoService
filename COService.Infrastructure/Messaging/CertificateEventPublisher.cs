@@ -64,8 +64,8 @@ public class CertificateEventPublisher : ICertificateEventPublisher
             {
                 IdentifiantCO = evt.CertificatId,
                 NumeroCO = evt.CertificateNo,
-                IdentifiantExportateur = evt.ExportateurId,
-                IdentifiantPartenaire = evt.PartenaireId,
+                NIUExportateur = evt.ExportateurNIU,
+                NIUPartenaire = evt.PartenaireNIU,
                 DateValidationUtc = evt.Timestamp.ToUniversalTime()
             }, cancellationToken);
 

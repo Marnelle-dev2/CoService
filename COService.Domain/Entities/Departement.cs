@@ -46,15 +46,4 @@ public class Departement
     /// Utilisateur ayant modifié
     /// </summary>
     public string? ModifiePar { get; set; }
-
-    // Navigation properties
-    /// <summary>
-    /// Partenaires de ce département
-    /// </summary>
-    public ICollection<Partenaire> Partenaires { get; set; } = new List<Partenaire>();
-
-    /// <summary>
-    /// Exportateurs de ce département
-    /// </summary>
-    public ICollection<Exportateur> Exportateurs { get; set; } = new List<Exportateur>();
 }

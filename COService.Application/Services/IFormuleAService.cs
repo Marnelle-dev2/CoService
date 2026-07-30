@@ -40,10 +40,10 @@ public interface IFormuleAService
     /// <summary>
     /// Vérifie si une chambre de commerce est autorisée à délivrer des Formules A
     /// </summary>
-    Task<bool> VerifierChambreAutoriseeFormuleAAsync(Guid partenaireId, CancellationToken cancellationToken = default);
+    Task<bool> VerifierChambreAutoriseeFormuleAAsync(string partenaireNIU, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Vérifie si un exportateur est autorisé à créer une Formule A
     /// </summary>
-    Task<bool> VerifierAutorisationFormuleAAsync(Guid certificatId, Guid exportateurId, CancellationToken cancellationToken = default);
+    Task<bool> VerifierAutorisationFormuleAAsync(Guid certificatId, string exportateurNIU, CancellationToken cancellationToken = default);
 }

@@ -116,6 +116,8 @@ builder.Services.AddScoped<ICertificateEventPublisher, CertificateEventPublisher
 builder.Services.AddScoped<INotificationEventPublisher, NotificationEventPublisher>();
 
 // RabbitMQ Event Handlers
+// NOTE: PartenaireEventHandler/ExportateurEventHandler sont des no-ops (plus de tables locales
+// Partenaire/Exportateur) mais restent enregistrés pour ne pas casser la consommation RabbitMQ.
 builder.Services.AddScoped<PartenaireEventHandler>();
 builder.Services.AddScoped<ExportateurEventHandler>();
 builder.Services.AddScoped<ReferentielEventHandler>();
@@ -129,14 +131,11 @@ builder.Services.AddHostedService<EnrolementSyncService>();
 
 // Repositories
 builder.Services.AddScoped<ICertificatOrigineRepository, CertificatOrigineRepository>();
-builder.Services.AddScoped<ICertificateLineRepository, CertificateLineRepository>();
+builder.Services.AddScoped<ICertificatLigneRepository, CertificatLigneRepository>();
 builder.Services.AddScoped<IAbonnementRepository, AbonnementRepository>();
 builder.Services.AddScoped<ICommentaireRepository, CommentaireRepository>();
 builder.Services.AddScoped<ICertificateTypeRepository, CertificateTypeRepository>();
-builder.Services.AddScoped<IPartenaireRepository, PartenaireRepository>();
-builder.Services.AddScoped<IExportateurRepository, ExportateurRepository>();
-builder.Services.AddScoped<ITypePartenaireRepository, TypePartenaireRepository>();
-builder.Services.AddScoped<IStatutCertificatRepository, StatutCertificatRepository>();
+builder.Services.AddScoped<IEtatRepository, EtatRepository>();
 // Repositories référentiels (synchronisés depuis Referentiel Service)
 builder.Services.AddScoped<IPaysRepository, PaysRepository>();
 builder.Services.AddScoped<IPortRepository, PortRepository>();
@@ -152,14 +151,11 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Services Application
 builder.Services.AddScoped<ICertificatOrigineService, CertificatOrigineService>();
-builder.Services.AddScoped<ICertificateLineService, CertificateLineService>();
+builder.Services.AddScoped<ICertificatLigneService, CertificatLigneService>();
 builder.Services.AddScoped<IAbonnementService, AbonnementService>();
 builder.Services.AddScoped<ICommentaireService, CommentaireService>();
 builder.Services.AddScoped<ICertificateTypeService, CertificateTypeService>();
-builder.Services.AddScoped<IPartenaireService, PartenaireService>();
-builder.Services.AddScoped<IExportateurService, ExportateurService>();
-builder.Services.AddScoped<ITypePartenaireService, TypePartenaireService>();
-builder.Services.AddScoped<IStatutCertificatService, StatutCertificatService>();
+builder.Services.AddScoped<IEtatService, EtatService>();
 builder.Services.AddScoped<INumeroGenerationService, NumeroGenerationService>();
 builder.Services.AddScoped<IFormuleAService, FormuleAService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
@@ -211,14 +207,13 @@ app.MapHealthEndpoints();
 
 // Endpoints CRUD
 app.MapCertificatEndpoints();
-app.MapCertificateLineEndpoints();
+app.MapCertificatLigneEndpoints();
 app.MapAbonnementEndpoints();
 app.MapCommentaireEndpoints();
 app.MapCertificateTypeEndpoints();
 app.MapPartenaireEndpoints();
 app.MapExportateurEndpoints();
-app.MapTypePartenaireEndpoints();
-app.MapStatutCertificatEndpoints();
+app.MapEtatEndpoints();
 app.MapWorkflowEndpoints();
 app.MapFormuleAEndpoints();
 app.MapPDFEndpoints();

@@ -9,7 +9,7 @@ public interface IAuthService
     Task<bool> VerifierRoleAsync(string userId, string role, CancellationToken cancellationToken = default);
     Task<List<string>> GetRolesAsync(string userId, CancellationToken cancellationToken = default);
     Task<bool> VerifierMotDePasseAsync(string userId, string password, CancellationToken cancellationToken = default);
-    Task<bool> VerifierOrganisationAsync(string userId, Guid organisationId, CancellationToken cancellationToken = default);
+    Task<bool> VerifierOrganisationAsync(string userId, string organisationCode, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

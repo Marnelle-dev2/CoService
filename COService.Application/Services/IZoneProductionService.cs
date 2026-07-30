@@ -9,21 +9,12 @@ namespace COService.Application.Services;
 public interface IZoneProductionService
 {
     Task<ZoneProductionDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ZoneProductionDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
     Task<IEnumerable<ZoneProductionDto>> GetAllAsync(CancellationToken cancellationToken = default);
-    Task<IEnumerable<ZoneProductionDto>> GetByPartenaireAsync(Guid partenaireId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ZoneProductionDto>> GetByPartenaireNIUAsync(string partenaireNIU, CancellationToken cancellationToken = default);
     Task<ZoneProductionDto> CreerZoneProductionAsync(CreerZoneProductionDto dto, string? utilisateur = null, CancellationToken cancellationToken = default);
     Task<ZoneProductionDto> ModifierZoneProductionAsync(Guid id, ModifierZoneProductionDto dto, string? utilisateur = null, CancellationToken cancellationToken = default);
     Task SupprimerZoneProductionAsync(Guid id, CancellationToken cancellationToken = default);
-}
-
-/// <summary>
-/// DTO pour créer une zone de production
-/// </summary>
-public class CreerZoneProductionDto
-{
-    public Guid PartenaireId { get; set; }
-    public string Nom { get; set; } = string.Empty;
-    public string? Description { get; set; }
 }
 
 /// <summary>
@@ -33,4 +24,5 @@ public class ModifierZoneProductionDto
 {
     public string? Nom { get; set; }
     public string? Description { get; set; }
+    public string? PartenaireNIU { get; set; }
 }

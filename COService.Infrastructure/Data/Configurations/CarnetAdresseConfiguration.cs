@@ -19,6 +19,15 @@ public class CarnetAdresseConfiguration : IEntityTypeConfiguration<CarnetAdresse
             .HasColumnName("id")
             .IsRequired();
 
+        builder.Property(c => c.Code)
+            .HasColumnName("Code")
+            .HasMaxLength(50)
+            .IsRequired();
+
+        builder.HasIndex(c => c.Code)
+            .IsUnique()
+            .HasDatabaseName("IX_CarnetsAdresses_Code");
+
         builder.Property(c => c.Nom)
             .HasColumnName("Nom")
             .HasMaxLength(255)
