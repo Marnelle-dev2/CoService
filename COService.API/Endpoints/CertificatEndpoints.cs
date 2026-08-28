@@ -29,17 +29,9 @@ public static class CertificatEndpoints
                 return PocAuthResults.Forbidden("Accès lecture certificats refusé pour ce profil.");
             }
 
-            var certificats = (await service.GetAllCertificatsAsync(cancellationToken)).ToList();
-
-            if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
-            {
-                var org = user.OrganisationCode.Trim();
-                certificats = certificats
-                    .Where(c =>
-                        string.Equals(c.ExportateurNIU, org, StringComparison.OrdinalIgnoreCase)
-                        || (c.ExportateurNom?.Contains(org, StringComparison.OrdinalIgnoreCase) ?? false))
-                    .ToList();
-            }
+            var certificats = PocCertificatScope.ApplyListFilter(
+                await service.GetAllCertificatsAsync(cancellationToken),
+                user);
 
             return Results.Ok(certificats);
         })
@@ -66,16 +58,10 @@ public static class CertificatEndpoints
                 return Results.NotFound(new { message = $"Certificat avec l'ID {id} introuvable." });
             }
 
-            if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
+            if (user.IsEnabled && user.Profile == "exportateur" && !user.CanViewAllCertificats
+                && !PocCertificatScope.IsOwnedByExportateur(certificat, user))
             {
-                var org = user.OrganisationCode.Trim();
-                var owned =
-                    string.Equals(certificat.ExportateurNIU, org, StringComparison.OrdinalIgnoreCase)
-                    || (certificat.ExportateurNom?.Contains(org, StringComparison.OrdinalIgnoreCase) ?? false);
-                if (!owned)
-                {
-                    return PocAuthResults.Forbidden("Ce certificat n'appartient pas à votre organisation exportateur.");
-                }
+                return PocAuthResults.Forbidden("Ce certificat n'appartient pas à votre organisation exportateur.");
             }
 
             return Results.Ok(certificat);
@@ -164,7 +150,9 @@ public static class CertificatEndpoints
 
             if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
             {
-                dto.ExportateurNIU ??= user.OrganisationCode.Trim();
+                var org = user.OrganisationCode.Trim();
+                dto.ExportateurNIU ??= org;
+                dto.ExportateurNom ??= org;
             }
 
             utilisateur ??= user.UserId;
