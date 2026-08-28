@@ -1,5 +1,7 @@
 using Consul;
+using COService.API.Auth;
 using COService.API.Endpoints;
+using COService.Application.Auth;
 using COService.Application.Mappings;
 using COService.Application.Messaging;
 using COService.Application.Repositories;
@@ -53,6 +55,18 @@ builder.Services.AddDbContext<COServiceDbContext>(options =>
 
 // Configuration AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IPocUserContext>(sp =>
+{
+    var accessor = sp.GetRequiredService<IHttpContextAccessor>();
+    var context = accessor.HttpContext;
+    if (context != null && context.Items.TryGetValue(nameof(IPocUserContext), out var value) && value is IPocUserContext user)
+    {
+        return user;
+    }
+
+    return new COService.Infrastructure.Auth.PocUserContext { IsEnabled = false };
+});
 
 // Configuration Consul
 var consulConfig = builder.Configuration.GetSection("Consul");
@@ -202,6 +216,7 @@ app.UseExceptionHandler(options =>
 
 app.UseHttpsRedirection();
 app.UseCors("DevClient");
+app.UsePocAuthorization();
 
 // Endpoints de vérification de santé
 app.MapHealthEndpoints();

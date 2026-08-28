@@ -1,3 +1,4 @@
+using COService.API.Auth;
 using COService.Application.DTOs;
 using COService.Application.Services;
 using COService.Application.Interfaces;
@@ -18,10 +19,28 @@ public static class CertificatEndpoints
 
         // GET /api/certificats - Liste tous les certificats
         group.MapGet("/", async (
+            HttpContext httpContext,
             ICertificatOrigineService service,
             CancellationToken cancellationToken) =>
         {
-            var certificats = await service.GetAllCertificatsAsync(cancellationToken);
+            var user = PocAuthResults.GetUser(httpContext);
+            if (!user.CanReadCertificats)
+            {
+                return PocAuthResults.Forbidden("Accès lecture certificats refusé pour ce profil.");
+            }
+
+            var certificats = (await service.GetAllCertificatsAsync(cancellationToken)).ToList();
+
+            if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
+            {
+                var org = user.OrganisationCode.Trim();
+                certificats = certificats
+                    .Where(c =>
+                        string.Equals(c.ExportateurNIU, org, StringComparison.OrdinalIgnoreCase)
+                        || (c.ExportateurNom?.Contains(org, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .ToList();
+            }
+
             return Results.Ok(certificats);
         })
         .WithName("GetAllCertificats")
@@ -30,14 +49,36 @@ public static class CertificatEndpoints
 
         // GET /api/certificats/{id} - Récupère un certificat par ID
         group.MapGet("/{id:guid}", async (
+            HttpContext httpContext,
             Guid id,
             ICertificatOrigineService service,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (!user.CanReadCertificats)
+            {
+                return PocAuthResults.Forbidden("Accès lecture certificats refusé pour ce profil.");
+            }
+
             var certificat = await service.GetCertificatByIdAsync(id, cancellationToken);
-            return certificat == null
-                ? Results.NotFound(new { message = $"Certificat avec l'ID {id} introuvable." })
-                : Results.Ok(certificat);
+            if (certificat == null)
+            {
+                return Results.NotFound(new { message = $"Certificat avec l'ID {id} introuvable." });
+            }
+
+            if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
+            {
+                var org = user.OrganisationCode.Trim();
+                var owned =
+                    string.Equals(certificat.ExportateurNIU, org, StringComparison.OrdinalIgnoreCase)
+                    || (certificat.ExportateurNom?.Contains(org, StringComparison.OrdinalIgnoreCase) ?? false);
+                if (!owned)
+                {
+                    return PocAuthResults.Forbidden("Ce certificat n'appartient pas à votre organisation exportateur.");
+                }
+            }
+
+            return Results.Ok(certificat);
         })
         .WithName("GetCertificatById")
         .WithSummary("Récupère un certificat par son identifiant")
@@ -109,11 +150,25 @@ public static class CertificatEndpoints
 
         // POST /api/certificats - Crée un nouveau certificat
         group.MapPost("/", async (
+            HttpContext httpContext,
             [FromBody] CreerCertificatOrigineDto dto,
             ICertificatOrigineService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (!user.CanCreateCertificat)
+            {
+                return PocAuthResults.Forbidden("Seuls les exportateurs peuvent créer un certificat d'origine.");
+            }
+
+            if (user.IsEnabled && user.Profile == "exportateur" && !string.IsNullOrWhiteSpace(user.OrganisationCode))
+            {
+                dto.ExportateurNIU ??= user.OrganisationCode.Trim();
+            }
+
+            utilisateur ??= user.UserId;
+
             try
             {
                 var certificat = await service.CreerCertificatAsync(dto, utilisateur, cancellationToken);
@@ -143,12 +198,21 @@ public static class CertificatEndpoints
 
         // PUT /api/certificats/{id} - Modifie un certificat
         group.MapPut("/{id:guid}", async (
+            HttpContext httpContext,
             Guid id,
             [FromBody] ModifierCertificatOrigineDto dto,
             ICertificatOrigineService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (!user.CanModifyCertificat)
+            {
+                return PocAuthResults.Forbidden("Modification réservée à l'exportateur propriétaire du certificat.");
+            }
+
+            utilisateur ??= user.UserId;
+
             try
             {
                 var certificat = await service.ModifierCertificatAsync(id, dto, utilisateur, cancellationToken);

@@ -45,6 +45,7 @@ services:
       # Même JWT que gateway si carnetadresses Ref est protégé
       - ExternalServices__ReferentielService__BearerToken=${GATEWAY_BEARER_TOKEN:-}
       - ExternalServices__AuthService__BypassMode=true
+      - PocAuth__Enabled=true
       - MassTransit__Enabled=true
       - MassTransit__UseInMemorySaga=true
       - MassTransit__UseInMemoryTransport=true
