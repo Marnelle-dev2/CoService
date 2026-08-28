@@ -51,13 +51,24 @@ public static class ReferentielEndpoints
         .WithName("GetReferentielPorts")
         .WithSummary("Ports depuis Référentiel (filtre optionnel paysId ou codePays=CG)");
 
-        group.MapGet("/aeroports", async (Guid? paysId, IReferentielServiceClient client, CancellationToken ct) =>
+        group.MapGet("/aeroports", async (Guid? paysId, string? codePays, IReferentielServiceClient client, CancellationToken ct) =>
         {
             try
             {
                 var items = await client.GetAeroportsAsync(ct);
                 if (paysId.HasValue)
+                {
                     items = items.Where(p => p.PaysId == paysId.Value).ToList();
+                }
+                else if (!string.IsNullOrWhiteSpace(codePays))
+                {
+                    var pays = await client.GetPaysAsync(ct);
+                    var ids = pays
+                        .Where(p => string.Equals(p.Code, codePays.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .Select(p => p.Id)
+                        .ToHashSet();
+                    items = items.Where(p => p.PaysId.HasValue && ids.Contains(p.PaysId.Value)).ToList();
+                }
                 return Results.Ok(items.Select(MapPort));
             }
             catch (ApiException ex)
@@ -162,9 +173,15 @@ public static class ReferentielEndpoints
                 if (!string.IsNullOrWhiteSpace(regime))
                 {
                     var regimeFilter = regime.Trim().ToUpperInvariant();
-                    query = query.Where(p =>
-                        string.IsNullOrWhiteSpace(p.Regime)
-                        || string.Equals(p.Regime, regimeFilter, StringComparison.OrdinalIgnoreCase));
+                    // Le référentiel expose des régimes douaniers (ASI, etc.) — pas « CO ».
+                    // On n'applique le filtre que si des positions portent explicitement ce régime.
+                    var withRegime = query.Where(p =>
+                        !string.IsNullOrWhiteSpace(p.Regime)
+                        && string.Equals(p.Regime, regimeFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (withRegime.Count > 0)
+                    {
+                        query = withRegime;
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(search))
