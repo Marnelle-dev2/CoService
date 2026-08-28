@@ -1,3 +1,4 @@
+using COService.API.Auth;
 using COService.Application.DTOs;
 using COService.Infrastructure.ExternalServices;
 using Refit;
@@ -21,7 +22,10 @@ public static class PartenaireEndpoints
             try
             {
                 var orgs = await organisationClient.GetOrganisationsByTypeAsync("PARTENAIRE", cancellationToken);
-                var partenaires = orgs.Select(OrganisationRemoteMapper.ToPartenaire).ToList();
+                var partenaires = orgs
+                    .Select(OrganisationRemoteMapper.ToPartenaire)
+                    .Where(PartenaireFilters.IsChambreCommerce)
+                    .ToList();
                 return Results.Ok(partenaires);
             }
             catch (ApiException ex)
@@ -38,7 +42,7 @@ public static class PartenaireEndpoints
             }
         })
         .WithName("GetAllPartenaires")
-        .WithSummary("Partenaires depuis Organisation (type PARTENAIRE) via Gateway")
+        .WithSummary("Chambres de commerce (CCI) depuis Organisation via Gateway")
         .Produces<IEnumerable<PartenaireDto>>(StatusCodes.Status200OK);
 
         group.MapGet("/code/{code}", async (
@@ -53,7 +57,12 @@ public static class PartenaireEndpoints
                 {
                     return Results.NotFound(new { message = $"Aucune organisation PARTENAIRE avec le code {code}." });
                 }
-                return Results.Ok(OrganisationRemoteMapper.ToPartenaire(org));
+                var partenaire = OrganisationRemoteMapper.ToPartenaire(org);
+                if (!PartenaireFilters.IsChambreCommerce(partenaire))
+                {
+                    return Results.NotFound(new { message = $"Aucune chambre de commerce avec le code {code}." });
+                }
+                return Results.Ok(partenaire);
             }
             catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
