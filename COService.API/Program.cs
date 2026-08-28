@@ -87,6 +87,13 @@ builder.Services.AddSingleton<IServiceDiscovery, ServiceDiscovery>();
 builder.Services.AddHostedService<ConsulService>();
 
 // Configuration des services externes
+builder.Services.Configure<GatewayTokenOptions>(
+    builder.Configuration.GetSection(GatewayTokenOptions.SectionName));
+builder.Services.AddHttpClient(nameof(GatewayTokenProvider));
+builder.Services.AddSingleton<GatewayTokenProvider>();
+builder.Services.AddSingleton<IGatewayTokenProvider>(sp => sp.GetRequiredService<GatewayTokenProvider>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GatewayTokenProvider>());
+
 // Client Enrolement avec wrapper pour découverte de service dynamique
 builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
 builder.Services.AddMemoryCache();

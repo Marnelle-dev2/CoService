@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using COService.Application.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -8,7 +7,7 @@ namespace COService.Infrastructure.ExternalServices;
 
 /// <summary>
 /// Client Organisation via API Gateway.
-/// Exemple : http://srv-guot-cont.gumar.local:5000/organisation/Organisations
+/// Exemple : http://192.168.2.89:5000/organisation/Organisations
 /// </summary>
 public class EnrolementServiceClientWrapper : IEnrolementServiceClient
 {
@@ -17,7 +16,8 @@ public class EnrolementServiceClientWrapper : IEnrolementServiceClient
 
     public EnrolementServiceClientWrapper(
         ILogger<EnrolementServiceClientWrapper> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IGatewayTokenProvider tokenProvider)
     {
         _logger = logger;
 
@@ -25,45 +25,34 @@ public class EnrolementServiceClientWrapper : IEnrolementServiceClient
         var useGateway = serviceConfig.GetValue("UseApiGateway", true);
         var path = serviceConfig.GetValue<string>("Path") ?? "/organisation";
         var timeout = serviceConfig.GetValue("Timeout", 30);
-        var bearerToken =
-            configuration.GetValue<string>("ApiGateway:BearerToken")
-            ?? serviceConfig.GetValue<string>("BearerToken");
 
         string baseAddress;
         if (useGateway)
         {
-            // Base = gateway seul ; le Path /organisation est dans les attributs Refit
-            // (un Get("/...") avec BaseAddress contenant déjà un path remplacerait ce path)
             baseAddress = configuration.GetValue<string>("ApiGateway:BaseUrl")
                 ?? throw new InvalidOperationException("ApiGateway:BaseUrl non configuré");
-            _ = path; // conservé en config pour documentation / futurs usages
+            _ = path;
         }
         else
         {
             baseAddress = (serviceConfig.GetValue<string>("BaseUrl") ?? "http://localhost:5000").TrimEnd('/');
         }
 
-        var httpClient = new HttpClient
+        var handler = new GatewayAuthorizationHandler(tokenProvider)
+        {
+            InnerHandler = new SocketsHttpHandler()
+        };
+
+        var httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseAddress.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(timeout)
         };
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-        {
-            httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", bearerToken);
-        }
-        else
-        {
-            _logger.LogWarning(
-                "EnrolementService:BearerToken vide — le gateway renverra probablement 401 sur /organisation");
-        }
-
         _client = RestService.For<IEnrolementServiceClient>(httpClient);
 
         _logger.LogInformation(
-            "Client Organisation configuré ({Mode}): {BaseAddress}",
+            "Client Organisation configuré ({Mode}): {BaseAddress} — auth gateway auto/renouvelée",
             useGateway ? "API Gateway" : "direct",
             baseAddress);
     }

@@ -1,10 +1,10 @@
 # Compose pour Portainer (sans Git, image Docker Hub)
-# Prérequis: docker push marnelle/coservice:1.2
+# Prérequis: docker push marnelle/coservice:1.4
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
 services:
   coservice:
-    image: marnelle/coservice:1.2
+    image: marnelle/coservice:1.4
     container_name: coservice
     ports:
       - "8700:8700"
@@ -12,13 +12,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8700
       # Renseigne la vraie chaîne SQL dans Portainer (Environment variables)
-      # ou remplace directement la valeur ci-dessous
       - ConnectionStrings__chaine=${DB_CONNECTION_STRING}
       - Consul__Enabled=true
       - Consul__Address=http://192.168.2.89:8500
       - Consul__ServiceName=COService
       - Consul__ServiceId=coservice-1
-      # IP hôte Portainer : le health check Consul doit joindre le MS depuis l'agent local
       - Consul__ServiceAddress=http://192.168.2.89:8700
       - Consul__HealthCheck__Endpoint=/sante
       - Consul__HealthCheck__Interval=10
@@ -31,19 +29,21 @@ services:
       - RabbitMQ__Password=MyS3cur3Passwor_d
       - RabbitMQ__VirtualHost=seg-co
       - RabbitMQ__Exchange=evenements.co
-      - ApiGateway__BaseUrl=http://srv-guot-cont.gumar.local:5000
-      # Token JWT gateway (Organisation / exportateurs / chambres).
-      # À renseigner dans Portainer → Stack → Environment (pas dans l'image).
-      # Quand le token expire : mettre à jour la variable + Redeploy/Restart (pas de rebuild).
+      # Gateway — IP directe recommandée depuis le conteneur Portainer
+      - ApiGateway__BaseUrl=http://192.168.2.89:5000
+      # Renouvellement automatique JWT (plus besoin de coller le token à la main)
+      - ApiGateway__ServiceAccount__Enabled=true
+      - ApiGateway__ServiceAccount__Username=${GATEWAY_SERVICE_USERNAME:-admin}
+      - ApiGateway__ServiceAccount__Password=${GATEWAY_SERVICE_PASSWORD}
+      - ApiGateway__ServiceAccount__LoginPath=/bff/auth/password-login
+      - ApiGateway__ServiceAccount__RefreshBeforeExpirySeconds=300
+      # Fallback optionnel si ServiceAccount désactivé (token manuel, expire ~30 min)
       - ApiGateway__BearerToken=${GATEWAY_BEARER_TOKEN:-}
       - ExternalServices__EnrolementService__Path=/organisation
       - ExternalServices__EnrolementService__UseApiGateway=true
-      - ExternalServices__EnrolementService__BearerToken=${GATEWAY_BEARER_TOKEN:-}
-      - ExternalServices__ReferentielService__BaseUrl=http://srv-guot-cont.gumar.local:8290
+      - ExternalServices__ReferentielService__BaseUrl=http://192.168.2.89:8290
       - ExternalServices__ReferentielService__UseApiGateway=false
       - ExternalServices__ReferentielService__RequireAuth=false
-      # Même JWT que gateway si carnetadresses Ref est protégé
-      - ExternalServices__ReferentielService__BearerToken=${GATEWAY_BEARER_TOKEN:-}
       - ExternalServices__AuthService__BypassMode=true
       - PocAuth__Enabled=true
       - MassTransit__Enabled=true

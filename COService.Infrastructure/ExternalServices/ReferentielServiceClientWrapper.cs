@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -19,7 +18,8 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
     public ReferentielServiceClientWrapper(
         ILogger<ReferentielServiceClientWrapper> logger,
         IConfiguration configuration,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        IGatewayTokenProvider tokenProvider)
     {
         _logger = logger;
         _cache = cache;
@@ -27,12 +27,6 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
         var serviceConfig = configuration.GetSection("ExternalServices:ReferentielService");
         var useGateway = serviceConfig.GetValue("UseApiGateway", false);
         var timeout = serviceConfig.GetValue("Timeout", 120);
-
-        // Token optionnel : utile pour /api/carnetadresses (401 sans JWT).
-        var bearerToken =
-            configuration.GetValue<string>("ExternalServices:ReferentielService:BearerToken")
-            ?? configuration.GetValue<string>("ApiGateway:BearerToken")
-            ?? configuration.GetValue<string>("ExternalServices:EnrolementService:BearerToken");
 
         string? dedicatedBase = serviceConfig.GetValue<string>("BaseUrl");
         string baseAddress;
@@ -51,27 +45,21 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
             baseAddress = "http://srv-guot-cont.gumar.local:8290";
         }
 
-        var httpClient = new HttpClient
+        var handler = new GatewayAuthorizationHandler(tokenProvider)
+        {
+            InnerHandler = new SocketsHttpHandler()
+        };
+
+        var httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseAddress.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(timeout)
         };
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-        {
-            httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", bearerToken);
-            _logger.LogInformation("Référentiel : BearerToken présent (carnet + endpoints protégés)");
-        }
-        else
-        {
-            _logger.LogInformation("Référentiel sans Authorization (carnetadresses renverra 401)");
-        }
-
         _client = RestService.For<IReferentielServiceClient>(httpClient);
 
         _logger.LogInformation(
-            "Client Référentiel configuré ({Mode}): {BaseAddress}",
+            "Client Référentiel configuré ({Mode}): {BaseAddress} — Bearer gateway auto si disponible",
             useGateway ? "API Gateway" : "direct",
             baseAddress);
     }
