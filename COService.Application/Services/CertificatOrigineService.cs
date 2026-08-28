@@ -14,6 +14,7 @@ public class CertificatOrigineService : ICertificatOrigineService
     private readonly ICertificatOrigineRepository _repository;
     private readonly ICertificatLigneRepository _ligneRepository;
     private readonly IEtatRepository _etatRepository;
+    private readonly INumeroGenerationService _numeroGenerationService;
     private readonly IMapper _mapper;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -21,27 +22,41 @@ public class CertificatOrigineService : ICertificatOrigineService
         ICertificatOrigineRepository repository,
         ICertificatLigneRepository ligneRepository,
         IEtatRepository etatRepository,
+        INumeroGenerationService numeroGenerationService,
         IMapper mapper,
         IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _ligneRepository = ligneRepository;
         _etatRepository = etatRepository;
+        _numeroGenerationService = numeroGenerationService;
         _mapper = mapper;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<CertificatOrigineDto> CreerCertificatAsync(CreerCertificatOrigineDto dto, string? utilisateur = null, CancellationToken cancellationToken = default)
     {
-        // Vérifier si le numéro de certificat existe déjà
-        if (await _repository.ExistsAsync(dto.CertificateNo, cancellationToken))
+        if (string.IsNullOrWhiteSpace(dto.PartenaireNIU))
         {
-            throw new InvalidOperationException($"Un certificat avec le numéro {dto.CertificateNo} existe déjà.");
+            throw new InvalidOperationException("Le partenaire (chambre de commerce) est obligatoire pour créer un certificat.");
         }
 
         var certificat = _mapper.Map<CertificatOrigine>(dto);
         certificat.CreePar = utilisateur;
         certificat.CreeLe = DateTime.UtcNow;
+
+        if (string.IsNullOrWhiteSpace(dto.CertificateNo))
+        {
+            certificat.CertificateNo = await _numeroGenerationService.GenererNumeroCertificatAsync(
+                dto.PartenaireNIU.Trim(),
+                certificat.Id,
+                dto.PartenaireNom,
+                cancellationToken);
+        }
+        else if (await _repository.ExistsAsync(dto.CertificateNo, cancellationToken))
+        {
+            throw new InvalidOperationException($"Un certificat avec le numéro {dto.CertificateNo} existe déjà.");
+        }
 
         // Assigner l'état "Élaboré" par défaut lors de la création
         var etatElabore = await _etatRepository.GetByCodeAsync(StatutsCertificats.Elabore, cancellationToken);

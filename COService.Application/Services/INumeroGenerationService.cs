@@ -9,7 +9,11 @@ public interface INumeroGenerationService
     /// Génère un numéro de certificat selon le format : CO{Numéro}{Date}{CodeDépartement}
     /// Exemple : CO100000241031224PNR
     /// </summary>
-    Task<string> GenererNumeroCertificatAsync(string partenaireNIU, Guid certificatId, CancellationToken cancellationToken = default);
+    Task<string> GenererNumeroCertificatAsync(
+        string partenaireNIU,
+        Guid certificatId,
+        string? nomPartenaire = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Génère un numéro d'abonnement
@@ -25,7 +29,10 @@ public interface INumeroGenerationService
     /// <summary>
     /// Récupère le code département correspondant à un partenaire (chambre de commerce)
     /// </summary>
-    Task<string?> GetCodeDepartementPartenaireAsync(string partenaireNIU, CancellationToken cancellationToken = default);
+    Task<string?> GetCodeDepartementPartenaireAsync(
+        string partenaireNIU,
+        string? nomPartenaire,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Récupère le dernier numéro séquentiel pour une date et un partenaire donnés

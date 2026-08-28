@@ -125,4 +125,48 @@ public static class ChambresCommerce
     {
         return string.Equals(codeDepartement, Ouesso.CodeDepartement, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// Résout le code département pour la numérotation (GECO : PNR, OUE…).
+    /// Accepte les codes legacy CCIAM-* et les codes Organisation (SEG…).
+    /// </summary>
+    public static string? ResolveCodeDepartement(string? codePartenaire, string? nomPartenaire = null)
+    {
+        if (EstPointeNoire(codePartenaire))
+        {
+            return PointeNoire.CodeDepartement;
+        }
+
+        if (EstOuesso(codePartenaire))
+        {
+            return Ouesso.CodeDepartement;
+        }
+
+        var haystack = $"{codePartenaire} {nomPartenaire}".ToUpperInvariant();
+        if (haystack.Contains("OUESSO") || haystack.Contains("-OUE"))
+        {
+            return Ouesso.CodeDepartement;
+        }
+
+        if (haystack.Contains("POINTE") || haystack.Contains("PNR")
+            || haystack.Contains("CHAMBRE") || haystack.Contains("CCI") || haystack.Contains("COMMERCE"))
+        {
+            return PointeNoire.CodeDepartement;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Code partenaire normalisé pour le routage workflow (Pointe-Noire / Ouesso).
+    /// </summary>
+    public static string ResolveWorkflowPartenaireCode(string? codePartenaire, string? nomPartenaire = null)
+    {
+        var dept = ResolveCodeDepartement(codePartenaire, nomPartenaire);
+        return dept switch
+        {
+            var d when string.Equals(d, Ouesso.CodeDepartement, StringComparison.OrdinalIgnoreCase) => Ouesso.CodePartenaire,
+            _ => PointeNoire.CodePartenaire
+        };
+    }
 }

@@ -21,11 +21,15 @@ public class NumeroGenerationService : INumeroGenerationService
         _logger = logger;
     }
 
-    public async Task<string> GenererNumeroCertificatAsync(string partenaireNIU, Guid certificatId, CancellationToken cancellationToken = default)
+    public async Task<string> GenererNumeroCertificatAsync(
+        string partenaireNIU,
+        Guid certificatId,
+        string? nomPartenaire = null,
+        CancellationToken cancellationToken = default)
     {
-        // 1. Récupérer le code département de la chambre de commerce
-        var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken)
-            ?? throw new InvalidOperationException($"Impossible de déterminer le code département pour le partenaire {partenaireNIU}");
+        var codeDepartement = await GetCodeDepartementPartenaireInternalAsync(partenaireNIU, nomPartenaire, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Impossible de déterminer le code département pour le partenaire {partenaireNIU}. Sélectionnez une chambre de commerce.");
 
         // 2. Formater la date actuelle
         var dateFormatee = FormaterDatePourNumero(DateTime.UtcNow);
@@ -67,19 +71,44 @@ public class NumeroGenerationService : INumeroGenerationService
 
     public Task<string?> GetCodeDepartementPartenaireAsync(string partenaireNIU, CancellationToken cancellationToken = default)
     {
-        // Valeurs temporaires basées sur le code partenaire (chambre de commerce) - voir ChambresCommerce
-        if (ChambresCommerce.EstPointeNoire(partenaireNIU))
+        var code = ChambresCommerce.ResolveCodeDepartement(partenaireNIU);
+        if (code != null)
         {
-            return Task.FromResult<string?>(ChambresCommerce.PointeNoire.CodeDepartement);
-        }
-
-        if (ChambresCommerce.EstOuesso(partenaireNIU))
-        {
-            return Task.FromResult<string?>(ChambresCommerce.Ouesso.CodeDepartement);
+            return Task.FromResult<string?>(code);
         }
 
         _logger.LogWarning("Aucun code département connu pour le partenaire {PartenaireNIU}", partenaireNIU);
         return Task.FromResult<string?>(null);
+    }
+
+    public Task<string?> GetCodeDepartementPartenaireAsync(
+        string partenaireNIU,
+        string? nomPartenaire,
+        CancellationToken cancellationToken = default)
+    {
+        var code = ChambresCommerce.ResolveCodeDepartement(partenaireNIU, nomPartenaire);
+        if (code != null)
+        {
+            return Task.FromResult<string?>(code);
+        }
+
+        _logger.LogWarning(
+            "Aucun code département connu pour le partenaire {PartenaireNIU} ({Nom})",
+            partenaireNIU, nomPartenaire);
+        return Task.FromResult<string?>(null);
+    }
+
+    private Task<string?> GetCodeDepartementPartenaireInternalAsync(
+        string partenaireNIU,
+        string? nomPartenaire,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(nomPartenaire))
+        {
+            return GetCodeDepartementPartenaireAsync(partenaireNIU, nomPartenaire, cancellationToken);
+        }
+
+        return GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken);
     }
 
     public async Task<int> GetDernierNumeroSequencielAsync(string partenaireNIU, DateTime date, CancellationToken cancellationToken = default)

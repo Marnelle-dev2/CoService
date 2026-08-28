@@ -67,19 +67,22 @@ public class WorkflowService : IWorkflowService
     /// </summary>
     private IWorkflowChambreService GetWorkflowService(CertificatOrigine certificat)
     {
-        var codePartenaire = certificat.PartenaireNIU;
-        
+        var codePartenaire = ChambresCommerce.ResolveWorkflowPartenaireCode(
+            certificat.PartenaireNIU,
+            certificat.PartenaireNom);
+
         if (ChambresCommerce.EstPointeNoire(codePartenaire))
         {
             return _pointeNoireService;
         }
-        
+
         if (ChambresCommerce.EstOuesso(codePartenaire))
         {
             return _ouessoService;
         }
-        
-        throw new InvalidOperationException($"Chambre de commerce non reconnue pour le code partenaire: {codePartenaire}");
+
+        throw new InvalidOperationException(
+            $"Chambre de commerce non reconnue pour le partenaire: {certificat.PartenaireNIU}");
     }
 
     public async Task<CertificatOrigineDto> SoumettreCertificatAsync(Guid certificatId, string userId, CancellationToken cancellationToken = default)
