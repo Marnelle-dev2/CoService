@@ -47,6 +47,9 @@ public interface IReferentielServiceClient
 
     [Get("/api/bureauxdouanes")]
     Task<List<ReferentielItemDto>> GetBureauxDouanesAsync(CancellationToken cancellationToken = default);
+
+    [Get("/api/positiontarifaires")]
+    Task<List<ReferentielPositionTarifaireDto>> GetPositionTarifairesAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -116,4 +119,14 @@ public class ReferentielIncotermDto
     public string Code { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool Actif { get; set; }
+}
+
+public class ReferentielPositionTarifaireDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Regime { get; set; }
+    public Guid? UniteStatistiqueId { get; set; }
+    public bool Actif { get; set; } = true;
 }

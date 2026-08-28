@@ -109,6 +109,9 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
     public Task<List<ReferentielItemDto>> GetBureauxDouanesAsync(CancellationToken cancellationToken = default)
         => GetCachedAsync("ref:bureauxdouanes", () => _client.GetBureauxDouanesAsync(cancellationToken));
 
+    public Task<List<ReferentielPositionTarifaireDto>> GetPositionTarifairesAsync(CancellationToken cancellationToken = default)
+        => _client.GetPositionTarifairesAsync(cancellationToken);
+
     public Task<List<ReferentielCarnetAdresseDto>> GetCarnetAdressesAsync(CancellationToken cancellationToken = default)
         => _client.GetCarnetAdressesAsync(cancellationToken);
 

@@ -161,6 +161,7 @@ builder.Services.AddScoped<IBureauDedouanementRepository, BureauDedouanementRepo
 builder.Services.AddScoped<IUniteStatistiqueRepository, UniteStatistiqueRepository>();
 builder.Services.AddScoped<IDepartementRepository, DepartementRepository>();
 builder.Services.AddScoped<IZoneProductionRepository, ZoneProductionRepository>();
+builder.Services.AddScoped<IZoneProductionService, ZoneProductionService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Services Application
@@ -236,6 +237,7 @@ app.MapPDFEndpoints();
 app.MapEnrolementSyncEndpoints();
 app.MapDocumentEndpoints();
 app.MapReferentielEndpoints();
+app.MapZoneProductionEndpoints();
 
 app.Run();
 

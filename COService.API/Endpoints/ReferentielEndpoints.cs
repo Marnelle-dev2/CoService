@@ -1,6 +1,7 @@
 using COService.Application.DTOs;
 using COService.Infrastructure.ExternalServices;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Refit;
 
 namespace COService.API.Endpoints;
@@ -138,6 +139,76 @@ public static class ReferentielEndpoints
             await ProxyAsync(() => client.GetBureauxDouanesAsync(ct), MapItem))
             .WithName("GetReferentielBureauxDouanes")
             .WithSummary("Bureaux de douane depuis Référentiel (/api/bureauxdouanes)");
+
+        group.MapGet("/positions-tarifaires", async (
+            string? search,
+            string? regime,
+            int? take,
+            IMemoryCache cache,
+            IReferentielServiceClient client,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                const string cacheKey = "referentiel:positiontarifaires:all";
+                if (!cache.TryGetValue(cacheKey, out List<ReferentielPositionTarifaireDto>? all) || all == null)
+                {
+                    all = await client.GetPositionTarifairesAsync(ct);
+                    cache.Set(cacheKey, all, TimeSpan.FromMinutes(30));
+                }
+
+                IEnumerable<ReferentielPositionTarifaireDto> query = all.Where(p => p.Actif);
+
+                if (!string.IsNullOrWhiteSpace(regime))
+                {
+                    var regimeFilter = regime.Trim().ToUpperInvariant();
+                    query = query.Where(p =>
+                        string.IsNullOrWhiteSpace(p.Regime)
+                        || string.Equals(p.Regime, regimeFilter, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var term = search.Trim();
+                    var termUpper = term.ToUpperInvariant();
+                    query = query.Where(p =>
+                        p.Code.StartsWith(termUpper, StringComparison.OrdinalIgnoreCase)
+                        || (p.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+                }
+                else if (string.IsNullOrWhiteSpace(search))
+                {
+                    return Results.Ok(Array.Empty<object>());
+                }
+
+                var limit = Math.Clamp(take ?? 20, 1, 50);
+                var items = query
+                    .OrderBy(p => p.Code)
+                    .Take(limit)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Code,
+                        Nom = p.Description ?? p.Code,
+                        Description = p.Description,
+                        p.Regime,
+                        p.UniteStatistiqueId,
+                        p.Actif
+                    })
+                    .ToList();
+
+                return Results.Ok(items);
+            }
+            catch (ApiException ex)
+            {
+                return GatewayProblem(ex);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        })
+        .WithName("GetReferentielPositionsTarifaires")
+        .WithSummary("Positions tarifaires depuis MS Référentiel (recherche + cache, min. param search)");
 
         // Carnet d'adresses : propre à une organisation (filtre serveur + client)
         group.MapGet("/carnet-adresses", async (
