@@ -54,16 +54,25 @@ public class ConsulService : IHostedService
 
         _serviceId = _options.ServiceId;
 
+        var serviceUri = new Uri(_options.ServiceAddress);
         var registration = new AgentServiceRegistration
         {
             ID = _serviceId,
             Name = _options.ServiceName,
-            Address = new Uri(_options.ServiceAddress).Host,
-            Port = new Uri(_options.ServiceAddress).Port,
-            Tags = new[] { "coservice", "api", "certificat-origine" },
+            Address = serviceUri.Host,
+            Port = serviceUri.Port,
+            // Tags alignés sur les autres MS SEG (Assurance, Référentiel, DI…) pour le gateway
+            Tags = new[]
+            {
+                "api",
+                "microservice",
+                "certificat-origine",
+                "route-prefix:co",
+                "downstream-path:/api/{everything}"
+            },
             Check = new AgentServiceCheck
             {
-                HTTP = $"{_options.ServiceAddress}{_options.HealthCheck.Endpoint}",
+                HTTP = $"{serviceUri.GetLeftPart(UriPartial.Authority)}{_options.HealthCheck.Endpoint}",
                 Interval = TimeSpan.FromSeconds(_options.HealthCheck.Interval),
                 Timeout = TimeSpan.FromSeconds(_options.HealthCheck.Timeout),
                 DeregisterCriticalServiceAfter = TimeSpan.FromSeconds(_options.HealthCheck.DeregisterCriticalServiceAfter)

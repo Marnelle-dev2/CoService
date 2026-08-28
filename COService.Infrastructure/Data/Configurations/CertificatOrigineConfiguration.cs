@@ -174,11 +174,9 @@ public class CertificatOrigineConfiguration : IEntityTypeConfiguration<Certifica
             .HasPrincipalKey(b => b.Code)
             .OnDelete(DeleteBehavior.NoAction);
 
-        builder.HasOne(c => c.CarnetAdresse)
-            .WithMany(ca => ca.Certificats)
-            .HasForeignKey(c => c.CarnetAdresseCode)
-            .HasPrincipalKey(ca => ca.Code)
-            .OnDelete(DeleteBehavior.NoAction);
+        // CarnetAdresseCode = référence opaque vers MS Référentiel (/api/carnetadresses).
+        // Plus de FK locale : le catalogue n'est plus géré dans CO.
+        builder.Ignore(c => c.CarnetAdresse);
 
         // Zone de production : relation bidirectionnelle (ZoneProduction.Certificats)
         builder.HasOne(c => c.ZoneProduction)

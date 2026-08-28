@@ -4,6 +4,7 @@ using COService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace COService.Infrastructure.Migrations
 {
     [DbContext(typeof(COServiceDbContext))]
-    partial class COServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811161638_AlignEtatsReferentielV2")]
+    partial class AlignEtatsReferentielV2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -640,6 +643,8 @@ namespace COService.Infrastructure.Migrations
                     b.HasIndex("BattantPavillonCode");
 
                     b.HasIndex("BureauDedouanementCode");
+
+                    b.HasIndex("CarnetAdresseCode");
 
                     b.HasIndex("CertificateNo")
                         .IsUnique()
@@ -1988,6 +1993,12 @@ namespace COService.Infrastructure.Migrations
                         .HasPrincipalKey("Code")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("COService.Domain.Entities.CarnetAdresse", "CarnetAdresse")
+                        .WithMany("Certificats")
+                        .HasForeignKey("CarnetAdresseCode")
+                        .HasPrincipalKey("Code")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("COService.Domain.Entities.Devise", "Devise")
                         .WithMany()
                         .HasForeignKey("DeviseCode")
@@ -2048,6 +2059,8 @@ namespace COService.Infrastructure.Migrations
                     b.Navigation("BattantPavillon");
 
                     b.Navigation("BureauDedouanement");
+
+                    b.Navigation("CarnetAdresse");
 
                     b.Navigation("Devise");
 
@@ -2174,6 +2187,11 @@ namespace COService.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("COService.Domain.Entities.BattantPavillon", b =>
+                {
+                    b.Navigation("Certificats");
+                });
+
+            modelBuilder.Entity("COService.Domain.Entities.CarnetAdresse", b =>
                 {
                     b.Navigation("Certificats");
                 });

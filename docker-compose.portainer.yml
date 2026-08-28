@@ -1,0 +1,57 @@
+# Compose pour Portainer (sans Git, image Docker Hub)
+# Prérequis: docker push marnelle/coservice:1.2
+# Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
+
+services:
+  coservice:
+    image: marnelle/coservice:1.2
+    container_name: coservice
+    ports:
+      - "8700:8700"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8700
+      # Renseigne la vraie chaîne SQL dans Portainer (Environment variables)
+      # ou remplace directement la valeur ci-dessous
+      - ConnectionStrings__chaine=${DB_CONNECTION_STRING}
+      - Consul__Enabled=true
+      - Consul__Address=http://192.168.2.89:8500
+      - Consul__ServiceName=COService
+      - Consul__ServiceId=coservice-1
+      # IP hôte Portainer : le health check Consul doit joindre le MS depuis l'agent local
+      - Consul__ServiceAddress=http://192.168.2.89:8700
+      - Consul__HealthCheck__Endpoint=/sante
+      - Consul__HealthCheck__Interval=10
+      - Consul__HealthCheck__Timeout=5
+      - Consul__HealthCheck__DeregisterCriticalServiceAfter=60
+      - RabbitMQ__Enabled=false
+      - RabbitMQ__HostName=192.168.2.119
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=sysguot
+      - RabbitMQ__Password=MyS3cur3Passwor_d
+      - RabbitMQ__VirtualHost=seg-co
+      - RabbitMQ__Exchange=evenements.co
+      - ApiGateway__BaseUrl=http://srv-guot-cont.gumar.local:5000
+      # Token JWT gateway (Organisation / exportateurs / chambres).
+      # À renseigner dans Portainer → Stack → Environment (pas dans l'image).
+      # Quand le token expire : mettre à jour la variable + Redeploy/Restart (pas de rebuild).
+      - ApiGateway__BearerToken=${GATEWAY_BEARER_TOKEN:-}
+      - ExternalServices__EnrolementService__Path=/organisation
+      - ExternalServices__EnrolementService__UseApiGateway=true
+      - ExternalServices__EnrolementService__BearerToken=${GATEWAY_BEARER_TOKEN:-}
+      - ExternalServices__ReferentielService__BaseUrl=http://srv-guot-cont.gumar.local:8290
+      - ExternalServices__ReferentielService__UseApiGateway=false
+      - ExternalServices__ReferentielService__RequireAuth=false
+      # Même JWT que gateway si carnetadresses Ref est protégé
+      - ExternalServices__ReferentielService__BearerToken=${GATEWAY_BEARER_TOKEN:-}
+      - ExternalServices__AuthService__BypassMode=true
+      - MassTransit__Enabled=true
+      - MassTransit__UseInMemorySaga=true
+      - MassTransit__UseInMemoryTransport=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8700' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

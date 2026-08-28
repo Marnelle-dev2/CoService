@@ -1,5 +1,6 @@
 using COService.Application.DTOs;
 using COService.Infrastructure.ExternalServices;
+using Microsoft.AspNetCore.Mvc;
 using Refit;
 
 namespace COService.API.Endpoints;
@@ -113,6 +114,106 @@ public static class ReferentielEndpoints
         group.MapGet("/unites-statistiques", async (IReferentielServiceClient client, CancellationToken ct) =>
             await ProxyAsync(() => client.GetUniteStatistiquesAsync(ct), MapItem))
             .WithName("GetReferentielUnitesStatistiques");
+
+        group.MapGet("/etats", async (IReferentielServiceClient client, CancellationToken ct) =>
+        {
+            try
+            {
+                var items = await client.GetEtatsAsync(ct);
+                return Results.Ok(items);
+            }
+            catch (ApiException ex)
+            {
+                return GatewayProblem(ex);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        })
+        .WithName("GetReferentielEtats")
+        .WithSummary("États live depuis MS Référentiel (/api/etats)");
+
+        group.MapGet("/bureaux-douanes", async (IReferentielServiceClient client, CancellationToken ct) =>
+            await ProxyAsync(() => client.GetBureauxDouanesAsync(ct), MapItem))
+            .WithName("GetReferentielBureauxDouanes")
+            .WithSummary("Bureaux de douane depuis Référentiel (/api/bureauxdouanes)");
+
+        // Carnet d'adresses : propre à une organisation (filtre serveur + client)
+        group.MapGet("/carnet-adresses", async (
+            string? organisation,
+            [FromHeader(Name = "X-Organisation-Id")] string? organisationHeader,
+            IReferentielServiceClient client,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var org = !string.IsNullOrWhiteSpace(organisation)
+                    ? organisation.Trim()
+                    : organisationHeader?.Trim();
+
+                if (string.IsNullOrWhiteSpace(org))
+                {
+                    return Results.BadRequest(new
+                    {
+                        message = "Paramètre 'organisation' (ou header X-Organisation-Id) obligatoire — carnet scoped par organisation."
+                    });
+                }
+
+                var items = await client.GetCarnetAdressesAsync(ct);
+                var filtered = items
+                    .Where(c => string.Equals(c.Organisation, org, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                return Results.Ok(filtered);
+            }
+            catch (ApiException ex)
+            {
+                return GatewayProblem(ex);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        })
+        .WithName("GetReferentielCarnetAdresses")
+        .WithSummary("Carnet d'adresses Référentiel filtré par organisation");
+
+        group.MapGet("/carnet-adresses/{id:guid}", async (
+            Guid id,
+            string? organisation,
+            [FromHeader(Name = "X-Organisation-Id")] string? organisationHeader,
+            IReferentielServiceClient client,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var item = await client.GetCarnetAdresseByIdAsync(id, ct);
+                var org = !string.IsNullOrWhiteSpace(organisation)
+                    ? organisation.Trim()
+                    : organisationHeader?.Trim();
+
+                if (!string.IsNullOrWhiteSpace(org) &&
+                    !string.Equals(item.Organisation, org, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Results.NotFound(new { message = "Carnet introuvable pour cette organisation." });
+                }
+
+                return Results.Ok(item);
+            }
+            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return Results.NotFound();
+            }
+            catch (ApiException ex)
+            {
+                return GatewayProblem(ex);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
+            }
+        })
+        .WithName("GetReferentielCarnetAdresseById");
     }
 
     private static async Task<IResult> ProxyAsync<T>(

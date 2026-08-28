@@ -32,7 +32,14 @@ public class CertificatOrigine
     public string? RouteCode { get; set; }
     public RouteNationale? Route { get; set; }
 
+    /// <summary>
+    /// Référence vers une entrée du carnet d'adresses MS Référentiel
+    /// (Id Guid stringifié ou code — propre à l'organisation créatrice).
+    /// Plus de copie locale obligatoire.
+    /// </summary>
     public string? CarnetAdresseCode { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public CarnetAdresse? CarnetAdresse { get; set; }
 
     public string? ModuleCode { get; set; }

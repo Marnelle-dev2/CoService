@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace COService.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Configuration EF Core pour l'entité Etat (remplace StatutCertificat).
+/// Configuration EF Core pour l'entité Etat (modèle V2 / Referentiel).
 /// </summary>
 public class EtatConfiguration : IEntityTypeConfiguration<Etat>
 {
@@ -41,7 +41,22 @@ public class EtatConfiguration : IEntityTypeConfiguration<Etat>
             .HasColumnName("CodeEcran")
             .HasMaxLength(50);
 
-        // Champs d'audit
+        builder.Property(e => e.Domaine)
+            .HasColumnName("Domaine")
+            .HasMaxLength(50);
+
+        builder.HasIndex(e => e.Domaine)
+            .HasDatabaseName("IX_Etats_Domaine");
+
+        builder.Property(e => e.TypeEtat)
+            .HasColumnName("TypeEtat")
+            .HasMaxLength(50);
+
+        builder.Property(e => e.Actif)
+            .HasColumnName("Actif")
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(e => e.CreeLe)
             .HasColumnName("CreeLe")
             .HasColumnType("datetime2(7)");

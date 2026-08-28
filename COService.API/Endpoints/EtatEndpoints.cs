@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace COService.API.Endpoints;
 
 /// <summary>
-/// Endpoints pour la gestion des états (statuts) de certificats
+/// États locaux (copie Referentiel) + sync / seed.
 /// </summary>
 public static class EtatEndpoints
 {
@@ -14,7 +14,6 @@ public static class EtatEndpoints
         var group = app.MapGroup("/api/etats")
             .WithTags("États");
 
-        // GET /api/etats - Liste tous les états
         group.MapGet("/", async (
             IEtatService service,
             CancellationToken cancellationToken) =>
@@ -23,10 +22,9 @@ public static class EtatEndpoints
             return Results.Ok(etats);
         })
         .WithName("GetAllEtats")
-        .WithSummary("Récupère tous les états de certificats")
+        .WithSummary("Récupère tous les états locaux (copie référentiel + domaine CO)")
         .Produces<IEnumerable<EtatDto>>(StatusCodes.Status200OK);
 
-        // GET /api/etats/{id} - Récupère un état par ID
         group.MapGet("/{id:guid}", async (
             Guid id,
             IEtatService service,
@@ -42,7 +40,6 @@ public static class EtatEndpoints
         .Produces<EtatDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        // GET /api/etats/code/{code} - Récupère un état par code
         group.MapGet("/code/{code}", async (
             string code,
             IEtatService service,
@@ -54,7 +51,7 @@ public static class EtatEndpoints
                 : Results.Ok(etat);
         })
         .WithName("GetEtatByCode")
-        .WithSummary("Récupère un état par son code")
+        .WithSummary("Récupère un état par son code métier")
         .Produces<EtatDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
@@ -75,9 +72,30 @@ public static class EtatEndpoints
             }
         })
         .WithName("CreerEtat")
-        .WithSummary("Crée un état de certificat")
+        .WithSummary("Crée un état local (usage admin / transition)")
         .Produces<EtatDto>(StatusCodes.Status201Created)
         .Produces(StatusCodes.Status400BadRequest);
+
+        group.MapPost("/sync-referentiel", async (
+            IEtatService service,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await service.SyncFromReferentielAsync(cancellationToken);
+                return Results.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
+        })
+        .WithName("SyncEtatsReferentiel")
+        .WithSummary("Synchronise les états depuis ReferentielService (/api/etats)")
+        .Produces<SyncEtatsResultDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status502BadGateway);
 
         group.MapPost("/seed-workflow", async (
             IEtatService service,
@@ -88,7 +106,7 @@ public static class EtatEndpoints
             return Results.Ok(etats);
         })
         .WithName("SeedEtatsWorkflow")
-        .WithSummary("Insère les états workflow manquants (ELABORE, SOUMIS, …)")
+        .WithSummary("Bootstrap local noyau V2 + états CO (si Ref incomplet)")
         .Produces<IEnumerable<EtatDto>>(StatusCodes.Status200OK);
     }
 }

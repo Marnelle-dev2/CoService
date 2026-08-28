@@ -35,6 +35,61 @@ public interface IReferentielServiceClient
 
     [Get("/api/UniteStatistiques")]
     Task<List<ReferentielItemDto>> GetUniteStatistiquesAsync(CancellationToken cancellationToken = default);
+
+    [Get("/api/etats")]
+    Task<List<ReferentielEtatDto>> GetEtatsAsync(CancellationToken cancellationToken = default);
+
+    [Get("/api/carnetadresses")]
+    Task<List<ReferentielCarnetAdresseDto>> GetCarnetAdressesAsync(CancellationToken cancellationToken = default);
+
+    [Get("/api/carnetadresses/{id}")]
+    Task<ReferentielCarnetAdresseDto> GetCarnetAdresseByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    [Get("/api/bureauxdouanes")]
+    Task<List<ReferentielItemDto>> GetBureauxDouanesAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// DTO MS Référentiel /api/carnetadresses — scoped par organisation.
+/// </summary>
+public class ReferentielCarnetAdresseDto
+{
+    public Guid Id { get; set; }
+    public string? Organisation { get; set; }
+    public string? Nom { get; set; }
+    public string? Niu { get; set; }
+    public string? Adresse { get; set; }
+    public string? Pays { get; set; }
+    public string? Coordonnees { get; set; }
+    public string? RaisonSociale { get; set; }
+    public string? NoRC { get; set; }
+    public string? NoCodeActivite { get; set; }
+    public bool Actif { get; set; } = true;
+    public string? CreerPar { get; set; }
+    public string? ModifierPar { get; set; }
+    public DateTime? CreerLe { get; set; }
+    public DateTime? ModifierLe { get; set; }
+}
+
+/// <summary>
+/// DTO MS Référentiel /api/etats (schéma V2 : Code int, UsageUI).
+/// </summary>
+public class ReferentielEtatDto
+{
+    public Guid Id { get; set; }
+    /// <summary>Code métier numérique (42, 79, …).</summary>
+    public int? Code { get; set; }
+    public string? Libelle { get; set; }
+    public string? Description { get; set; }
+    public string? CodeEcran { get; set; }
+    public string? UsageUI { get; set; }
+    public string? Domaine { get; set; }
+    public string? TypeEtat { get; set; }
+    public bool Actif { get; set; } = true;
+    public string? CreerPar { get; set; }
+    public string? ModifierPar { get; set; }
+    public DateTime? CreerLe { get; set; }
+    public DateTime? ModifierLe { get; set; }
 }
 
 public class ReferentielItemDto

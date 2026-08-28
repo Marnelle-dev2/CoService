@@ -20,6 +20,7 @@ public class ReferentielEventHandler
     private readonly IBureauDedouanementRepository _bureauDedouanementRepository;
     private readonly IUniteStatistiqueRepository _uniteStatistiqueRepository;
     private readonly IDepartementRepository _departementRepository;
+    private readonly IEtatRepository _etatRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ReferentielEventHandler> _logger;
 
@@ -33,6 +34,7 @@ public class ReferentielEventHandler
         IBureauDedouanementRepository bureauDedouanementRepository,
         IUniteStatistiqueRepository uniteStatistiqueRepository,
         IDepartementRepository departementRepository,
+        IEtatRepository etatRepository,
         IUnitOfWork unitOfWork,
         ILogger<ReferentielEventHandler> logger)
     {
@@ -45,6 +47,7 @@ public class ReferentielEventHandler
         _bureauDedouanementRepository = bureauDedouanementRepository;
         _uniteStatistiqueRepository = uniteStatistiqueRepository;
         _departementRepository = departementRepository;
+        _etatRepository = etatRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -84,6 +87,9 @@ public class ReferentielEventHandler
                     break;
                 case "referentiel.departement.mis-a-jour":
                     await HandleDepartementMisAJourAsync(messageBody, cancellationToken);
+                    break;
+                case "referentiel.etat.mis-a-jour":
+                    await HandleEtatMisAJourAsync(messageBody, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("Routing key référentiel non géré : {RoutingKey}", routingKey);
@@ -273,12 +279,74 @@ public class ReferentielEventHandler
         await Task.CompletedTask;
     }
 
+    private async Task HandleEtatMisAJourAsync(string messageBody, CancellationToken cancellationToken)
+    {
+        var eventData = JsonSerializer.Deserialize<ReferentielEventData<EtatData>>(messageBody, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        var etats = eventData?.Etats ?? eventData?.Items;
+        if (etats == null || !etats.Any())
+        {
+            _logger.LogWarning("Aucun état dans l'événement referentiel.etat.mis-a-jour");
+            return;
+        }
+
+        foreach (var data in etats)
+        {
+            if (string.IsNullOrWhiteSpace(data.Code))
+            {
+                _logger.LogWarning("État référentiel {Id} sans Code — ignoré", data.Id);
+                continue;
+            }
+
+            var existing = await _etatRepository.GetByIdAsync(data.Id, cancellationToken)
+                ?? await _etatRepository.GetByCodeAsync(data.Code, cancellationToken);
+
+            if (existing == null)
+            {
+                await _etatRepository.AddAsync(new Etat
+                {
+                    Id = data.Id == Guid.Empty ? Guid.NewGuid() : data.Id,
+                    Code = data.Code.Trim(),
+                    Libelle = string.IsNullOrWhiteSpace(data.Libelle) ? data.Code : data.Libelle,
+                    Description = data.Description,
+                    CodeEcran = data.CodeEcran,
+                    Domaine = data.Domaine ?? "COMMUN",
+                    TypeEtat = data.TypeEtat ?? "METIER",
+                    Actif = data.Actif,
+                    CreeLe = DateTime.UtcNow,
+                    CreePar = "SYSTEM"
+                }, cancellationToken);
+            }
+            else
+            {
+                existing.Code = data.Code.Trim();
+                existing.Libelle = string.IsNullOrWhiteSpace(data.Libelle) ? existing.Libelle : data.Libelle;
+                existing.Description = data.Description ?? existing.Description;
+                existing.CodeEcran = data.CodeEcran ?? existing.CodeEcran;
+                existing.Domaine = data.Domaine ?? existing.Domaine;
+                existing.TypeEtat = data.TypeEtat ?? existing.TypeEtat;
+                existing.Actif = data.Actif;
+                existing.ModifierLe = DateTime.UtcNow;
+                existing.ModifiePar = "SYSTEM";
+                _etatRepository.Update(existing);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("États synchronisés via referentiel.etat.mis-a-jour ({Count})", etats.Count());
+    }
+
     // DTOs pour les événements
     private class ReferentielEventData<T>
     {
         public IEnumerable<T>? Pays { get; set; }
         public IEnumerable<T>? Ports { get; set; }
         public IEnumerable<T>? Devises { get; set; }
+        public IEnumerable<T>? Etats { get; set; }
+        public IEnumerable<T>? Items { get; set; }
         public DateTime? Timestamp { get; set; }
     }
 
@@ -306,5 +374,17 @@ public class ReferentielEventHandler
         public string Code { get; set; } = string.Empty;
         public string Nom { get; set; } = string.Empty;
         public bool Actif { get; set; }
+    }
+
+    private class EtatData
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string? Libelle { get; set; }
+        public string? Description { get; set; }
+        public string? CodeEcran { get; set; }
+        public string? Domaine { get; set; }
+        public string? TypeEtat { get; set; }
+        public bool Actif { get; set; } = true;
     }
 }

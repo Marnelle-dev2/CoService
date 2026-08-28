@@ -24,10 +24,8 @@ RUN dotnet publish "COService.API.csproj" -c Release -o /app/publish /p:UseAppHo
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Installer curl pour le health check
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Créer un utilisateur non-root pour la sécurité
+# Health check Portainer/Compose : probe TCP (pas de curl — apt debian parfois bloqué en build)
+# Consul vérifie HTTP /sante depuis l'extérieur du conteneur.
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Copier les fichiers publiés depuis l'étape de build

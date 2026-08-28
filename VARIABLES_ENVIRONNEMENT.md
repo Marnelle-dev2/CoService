@@ -36,6 +36,19 @@ Dans Portainer, lors de la création de la stack, ajoutez dans **Environment var
 | `Consul__Enabled` | `true` |
 | `Consul__Address` | `http://srv-guot-cont.gumar.local:8500` |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `GATEWAY_BEARER_TOKEN` | JWT Auth (sans préfixe `Bearer `) — exportateurs / chambres via gateway |
+| `ApiGateway__BearerToken` | même JWT (si tu ne passes pas par `GATEWAY_BEARER_TOKEN`) |
+
+### Token Organisation (sans rebuild)
+
+Le client Organisation lit `ApiGateway__BearerToken` ou `ExternalServices__EnrolementService__BearerToken`.
+
+Quand le JWT expire :
+1. Portainer → stack **coservice** → **Editor** / Environment
+2. Mets à jour `GATEWAY_BEARER_TOKEN` (ou `ApiGateway__BearerToken`)
+3. **Update the stack** / Restart du conteneur
+
+Pas besoin de rebuild ni de `docker push` — uniquement redémarrer le conteneur pour recharger l’env.
 
 ### Option 2 : Via docker-compose.yml
 

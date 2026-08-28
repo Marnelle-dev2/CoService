@@ -25,4 +25,9 @@ public class EtatRepository : Repository<Etat>, IEtatRepository
         return await _dbSet
             .AnyAsync(e => e.Code == code, cancellationToken);
     }
+
+    public new void Update(Etat etat)
+    {
+        _dbSet.Update(etat);
+    }
 }

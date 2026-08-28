@@ -32,7 +32,7 @@ services:
     networks:
       - coservice-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8700/sante || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8700' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

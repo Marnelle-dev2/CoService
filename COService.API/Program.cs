@@ -156,6 +156,7 @@ builder.Services.AddScoped<IAbonnementService, AbonnementService>();
 builder.Services.AddScoped<ICommentaireService, CommentaireService>();
 builder.Services.AddScoped<ICertificateTypeService, CertificateTypeService>();
 builder.Services.AddScoped<IEtatService, EtatService>();
+builder.Services.AddScoped<IReferentielEtatsClient, ReferentielEtatsClient>();
 builder.Services.AddScoped<INumeroGenerationService, NumeroGenerationService>();
 builder.Services.AddScoped<IFormuleAService, FormuleAService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();

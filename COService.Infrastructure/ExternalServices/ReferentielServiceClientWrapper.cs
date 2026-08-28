@@ -7,8 +7,8 @@ using Refit;
 namespace COService.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Client Référentiel en accès direct (sans JWT).
-/// Exemple : http://srv-guot-cont.gumar.local:8290/api/pays
+/// Client Référentiel en accès direct (:8290).
+/// Pays/devises/… ouverts ; carnetadresses nécessite un Bearer si configuré.
 /// </summary>
 public class ReferentielServiceClientWrapper : IReferentielServiceClient
 {
@@ -28,14 +28,12 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
         var useGateway = serviceConfig.GetValue("UseApiGateway", false);
         var timeout = serviceConfig.GetValue("Timeout", 120);
 
-        var requireAuth = serviceConfig.GetValue("RequireAuth", false);
-        var bearerToken = requireAuth
-            ? (configuration.GetValue<string>("ApiGateway:BearerToken")
-               ?? configuration.GetValue<string>("ExternalServices:ReferentielService:BearerToken")
-               ?? configuration.GetValue<string>("ExternalServices:EnrolementService:BearerToken"))
-            : null;
+        // Token optionnel : utile pour /api/carnetadresses (401 sans JWT).
+        var bearerToken =
+            configuration.GetValue<string>("ExternalServices:ReferentielService:BearerToken")
+            ?? configuration.GetValue<string>("ApiGateway:BearerToken")
+            ?? configuration.GetValue<string>("ExternalServices:EnrolementService:BearerToken");
 
-        // Priorité : BaseUrl dédié du service (ex. :8290), sinon gateway si UseApiGateway=true
         string? dedicatedBase = serviceConfig.GetValue<string>("BaseUrl");
         string baseAddress;
         if (!string.IsNullOrWhiteSpace(dedicatedBase))
@@ -59,18 +57,15 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
             Timeout = TimeSpan.FromSeconds(timeout)
         };
 
-        if (requireAuth && !string.IsNullOrWhiteSpace(bearerToken))
+        if (!string.IsNullOrWhiteSpace(bearerToken))
         {
             httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", bearerToken);
-        }
-        else if (requireAuth)
-        {
-            _logger.LogWarning("Referentiel RequireAuth=true mais BearerToken vide");
+            _logger.LogInformation("Référentiel : BearerToken présent (carnet + endpoints protégés)");
         }
         else
         {
-            _logger.LogInformation("Référentiel en accès ouvert (pas d'Authorization envoyé)");
+            _logger.LogInformation("Référentiel sans Authorization (carnetadresses renverra 401)");
         }
 
         _client = RestService.For<IReferentielServiceClient>(httpClient);
@@ -107,6 +102,18 @@ public class ReferentielServiceClientWrapper : IReferentielServiceClient
 
     public Task<List<ReferentielItemDto>> GetUniteStatistiquesAsync(CancellationToken cancellationToken = default)
         => GetCachedAsync("ref:unites", () => _client.GetUniteStatistiquesAsync(cancellationToken));
+
+    public Task<List<ReferentielEtatDto>> GetEtatsAsync(CancellationToken cancellationToken = default)
+        => GetCachedAsync("ref:etats", () => _client.GetEtatsAsync(cancellationToken), TimeSpan.FromMinutes(5));
+
+    public Task<List<ReferentielItemDto>> GetBureauxDouanesAsync(CancellationToken cancellationToken = default)
+        => GetCachedAsync("ref:bureauxdouanes", () => _client.GetBureauxDouanesAsync(cancellationToken));
+
+    public Task<List<ReferentielCarnetAdresseDto>> GetCarnetAdressesAsync(CancellationToken cancellationToken = default)
+        => _client.GetCarnetAdressesAsync(cancellationToken);
+
+    public Task<ReferentielCarnetAdresseDto> GetCarnetAdresseByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        => _client.GetCarnetAdresseByIdAsync(id, cancellationToken);
 
     private async Task<List<T>> GetCachedAsync<T>(
         string key,

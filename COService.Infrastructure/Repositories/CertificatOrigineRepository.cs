@@ -30,7 +30,6 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
             .Include(c => c.Devise)
             .Include(c => c.Type)
             .Include(c => c.Etat)
-            .Include(c => c.CarnetAdresse)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
@@ -50,7 +49,6 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
             .Include(c => c.Devise)
             .Include(c => c.Type)
             .Include(c => c.Etat)
-            .Include(c => c.CarnetAdresse)
             .FirstOrDefaultAsync(c => c.CertificateNo == certificateNo, cancellationToken);
     }
 

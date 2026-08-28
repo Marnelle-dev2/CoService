@@ -47,7 +47,7 @@ public class CertificatOrigineService : ICertificatOrigineService
         var etatElabore = await _etatRepository.GetByCodeAsync(StatutsCertificats.Elabore, cancellationToken);
         if (etatElabore == null)
         {
-            throw new InvalidOperationException($"L'état '{StatutsCertificats.Elabore}' est introuvable dans la base de données. Veuillez exécuter le script d'insertion des états (seed-workflow).");
+            throw new InvalidOperationException($"L'état '{StatutsCertificats.Elabore}' est introuvable. Appelez POST /api/etats/seed-workflow ou POST /api/etats/sync-referentiel.");
         }
         certificat.EtatCode = etatElabore.Code;
 
