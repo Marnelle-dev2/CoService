@@ -24,6 +24,11 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
+
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

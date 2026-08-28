@@ -18,6 +18,7 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
 
     private string? _accessToken;
     private DateTimeOffset _expiresAtUtc = DateTimeOffset.MinValue;
+    private bool _loggedMissingCredentials;
 
     public GatewayTokenProvider(
         ILogger<GatewayTokenProvider> logger,
@@ -31,7 +32,7 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
 
     public async Task<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default)
     {
-        if (!_options.ServiceAccount.Enabled)
+        if (!IsServiceAccountConfigured())
         {
             return StaticBearerToken();
         }
@@ -41,7 +42,15 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
             return _accessToken;
         }
 
-        await RefreshAsync(cancellationToken);
+        try
+        {
+            await RefreshAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Impossible d'obtenir un token gateway — utilisation du fallback statique si disponible.");
+        }
+
         return _accessToken ?? StaticBearerToken();
     }
 
@@ -57,21 +66,26 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
             return;
         }
 
-        await RefreshAsync(stoppingToken);
+        if (!IsServiceAccountConfigured())
+        {
+            LogMissingCredentialsOnce();
+            return;
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var refreshAt = _expiresAtUtc.AddSeconds(-_options.ServiceAccount.RefreshBeforeExpirySeconds);
-            var delay = refreshAt - DateTimeOffset.UtcNow;
-            if (delay < TimeSpan.FromSeconds(30))
-            {
-                delay = TimeSpan.FromSeconds(30);
-            }
-
             try
             {
-                await Task.Delay(delay, stoppingToken);
                 await RefreshAsync(stoppingToken);
+
+                var refreshAt = _expiresAtUtc.AddSeconds(-_options.ServiceAccount.RefreshBeforeExpirySeconds);
+                var delay = refreshAt - DateTimeOffset.UtcNow;
+                if (delay < TimeSpan.FromSeconds(30))
+                {
+                    delay = TimeSpan.FromSeconds(30);
+                }
+
+                await Task.Delay(delay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -80,7 +94,14 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Échec renouvellement token gateway — nouvelle tentative dans 60 s");
-                await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
     }
@@ -100,18 +121,19 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
                 return;
             }
 
+            if (!IsServiceAccountConfigured())
+            {
+                LogMissingCredentialsOnce();
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_options.BaseUrl))
             {
                 throw new InvalidOperationException("ApiGateway:BaseUrl non configuré.");
             }
 
-            var username = _options.ServiceAccount.Username?.Trim();
+            var username = _options.ServiceAccount.Username!.Trim();
             var password = _options.ServiceAccount.Password;
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                throw new InvalidOperationException(
-                    "ApiGateway:ServiceAccount activé mais Username/Password manquants.");
-            }
 
             var loginUrl = $"{_options.BaseUrl.TrimEnd('/')}{NormalizeLoginPath(_options.ServiceAccount.LoginPath)}";
             using var response = await _loginClient.PostAsJsonAsync(
@@ -147,6 +169,24 @@ public sealed class GatewayTokenProvider : BackgroundService, IGatewayTokenProvi
         {
             _refreshLock.Release();
         }
+    }
+
+    private bool IsServiceAccountConfigured()
+        => _options.ServiceAccount.Enabled
+           && !string.IsNullOrWhiteSpace(_options.ServiceAccount.Username)
+           && !string.IsNullOrWhiteSpace(_options.ServiceAccount.Password);
+
+    private void LogMissingCredentialsOnce()
+    {
+        if (_loggedMissingCredentials)
+        {
+            return;
+        }
+
+        _loggedMissingCredentials = true;
+        _logger.LogWarning(
+            "ApiGateway:ServiceAccount activé mais Username/Password manquants (Portainer : GATEWAY_SERVICE_PASSWORD). " +
+            "Le MS CO démarre sans renouvellement auto — exportateurs/partenaires renverront 401 tant que le mot de passe n'est pas défini.");
     }
 
     private bool IsTokenValid()
