@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 namespace COService.Application.Services;
 
 /// <summary>
-/// Service pour la génération des numéros de certificats, abonnements, etc.
-/// Le partenaire (chambre de commerce) est identifié par son NIU (Enrôlement), plus de table locale Partenaire.
+/// Génération des numéros CO — format GECO : CO{seq:D6}{ddMMyy}{Dept}
+/// Exemple : CO000002290826PNR
 /// </summary>
 public class NumeroGenerationService : INumeroGenerationService
 {
@@ -31,30 +31,35 @@ public class NumeroGenerationService : INumeroGenerationService
             ?? throw new InvalidOperationException(
                 $"Impossible de déterminer le code département pour le partenaire {partenaireNIU}. Sélectionnez une chambre de commerce.");
 
-        // 2. Formater la date actuelle
         var dateFormatee = FormaterDatePourNumero(DateTime.UtcNow);
+        var suffixe = $"{dateFormatee}{codeDepartement}";
 
-        // 3. Récupérer le dernier numéro séquentiel pour cette date et ce partenaire
-        var dernierNumero = await GetDernierNumeroSequencielAsync(partenaireNIU, DateTime.UtcNow.Date, cancellationToken);
+        var dernierNumero = await GetDernierNumeroSequencielPourSuffixeAsync(suffixe, cancellationToken);
+        var candidat = dernierNumero + 1;
 
-        // 4. Incrémenter
-        var nouveauNumero = dernierNumero + 1;
+        // Garantir l'unicité (évite collision si filtre partenaire/NIU diverge)
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var numero = $"CO{candidat:D6}{suffixe}";
+            if (!await _certificatRepository.ExistsAsync(numero, cancellationToken))
+            {
+                _logger.LogInformation(
+                    "Numéro de certificat généré : {Numero} pour le partenaire {PartenaireNIU}",
+                    numero, partenaireNIU);
+                return numero;
+            }
 
-        // 5. Construire le numéro : CO{Numéro}{Date}{CodeDépartement}
-        var numeroCertificat = $"CO{nouveauNumero:D6}{dateFormatee}{codeDepartement}";
+            candidat++;
+        }
 
-        _logger.LogInformation(
-            "Numéro de certificat généré : {Numero} pour le partenaire {PartenaireNIU}",
-            numeroCertificat, partenaireNIU);
-
-        return numeroCertificat;
+        throw new InvalidOperationException(
+            $"Impossible de générer un numéro de certificat unique pour le suffixe {suffixe}.");
     }
 
     public Task<string> GenererNumeroAbonnementAsync(CancellationToken cancellationToken = default)
     {
         var maintenant = DateTime.UtcNow;
         var numero = $"{maintenant:yyyyMMddHHmmss}{GetLettreAleatoire()}";
-        
         _logger.LogInformation("Numéro d'abonnement généré : {Numero}", numero);
         return Task.FromResult(numero);
     }
@@ -64,7 +69,6 @@ public class NumeroGenerationService : INumeroGenerationService
         var maintenant = DateTime.UtcNow;
         var codePartenaire = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken) ?? "XXX";
         var numero = $"FACT{maintenant:yyyyMMdd}{codePartenaire}{maintenant:HHmmss}";
-        
         _logger.LogInformation("Numéro de facture généré : {Numero} pour le partenaire {PartenaireNIU}", numero, partenaireNIU);
         return numero;
     }
@@ -111,88 +115,74 @@ public class NumeroGenerationService : INumeroGenerationService
         return GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken);
     }
 
+    /// <summary>
+    /// Compatibilité interface — délègue au calcul par suffixe date+département.
+    /// </summary>
     public async Task<int> GetDernierNumeroSequencielAsync(string partenaireNIU, DateTime date, CancellationToken cancellationToken = default)
     {
-        // Récupérer tous les certificats du partenaire
-        var certificats = await _certificatRepository.GetAllAsync(cancellationToken);
-        
-        var certificatsPartenaire = certificats
-            .Where(c => c.PartenaireNIU == partenaireNIU && c.CertificateNo.StartsWith("CO"))
-            .ToList();
-
-        var dateFormatee = FormaterDatePourNumero(date);
         var codeDepartement = await GetCodeDepartementPartenaireAsync(partenaireNIU, cancellationToken);
-
         if (string.IsNullOrEmpty(codeDepartement))
         {
-            return 0;
+            // Sans nom partenaire, le NIU Organisation (SEG…) ne résout pas le département :
+            // on scanne quand même les suffixes connus PNR/OUE pour la date.
+            var dateFormatee = FormaterDatePourNumero(date);
+            var maxPnr = await GetDernierNumeroSequencielPourSuffixeAsync($"{dateFormatee}{ChambresCommerce.PointeNoire.CodeDepartement}", cancellationToken);
+            var maxOue = await GetDernierNumeroSequencielPourSuffixeAsync($"{dateFormatee}{ChambresCommerce.Ouesso.CodeDepartement}", cancellationToken);
+            return Math.Max(maxPnr, maxOue);
         }
 
-        // Filtrer les certificats qui correspondent à la date et au code département
-        var certificatsDate = certificatsPartenaire
-            .Where(c => c.CertificateNo.EndsWith($"{dateFormatee}{codeDepartement}"))
-            .ToList();
+        return await GetDernierNumeroSequencielPourSuffixeAsync(
+            $"{FormaterDatePourNumero(date)}{codeDepartement}",
+            cancellationToken);
+    }
 
-        if (!certificatsDate.Any())
-        {
-            return 0;
-        }
-
-        // Extraire les numéros séquentiels et trouver le maximum
-        var numeros = certificatsDate
+    /// <summary>
+    /// Max séquentiel sur tous les CO dont le numéro se termine par {ddMMyy}{Dept} (indépendant du NIU partenaire).
+    /// </summary>
+    private async Task<int> GetDernierNumeroSequencielPourSuffixeAsync(string suffixe, CancellationToken cancellationToken)
+    {
+        var certificats = await _certificatRepository.GetAllAsync(cancellationToken);
+        var numeros = certificats
+            .Where(c => !string.IsNullOrWhiteSpace(c.CertificateNo)
+                        && c.CertificateNo.StartsWith("CO", StringComparison.OrdinalIgnoreCase)
+                        && c.CertificateNo.EndsWith(suffixe, StringComparison.OrdinalIgnoreCase))
             .Select(c => ExtraireNumeroSequenciel(c.CertificateNo))
             .Where(n => n > 0)
             .ToList();
 
-        return numeros.Any() ? numeros.Max() : 0;
+        return numeros.Count > 0 ? numeros.Max() : 0;
     }
 
     public int ExtraireNumeroSequenciel(string numeroCertificat)
     {
-        // Format attendu : CO{Numéro}{Date}{CodeDépartement}
-        // Exemple : CO100000241031224PNR
-        // Le numéro séquentiel est entre "CO" et la date (6 chiffres)
-
-        if (string.IsNullOrWhiteSpace(numeroCertificat) || !numeroCertificat.StartsWith("CO"))
+        if (string.IsNullOrWhiteSpace(numeroCertificat) || !numeroCertificat.StartsWith("CO", StringComparison.OrdinalIgnoreCase))
         {
             return 0;
         }
 
         try
         {
-            // Enlever "CO" au début
             var sansPrefixe = numeroCertificat.Substring(2);
-            
-            // Le numéro séquentiel fait 6 chiffres (format :D6)
             if (sansPrefixe.Length < 6)
             {
                 return 0;
             }
 
             var numeroStr = sansPrefixe.Substring(0, 6);
-            if (int.TryParse(numeroStr, out var numero))
-            {
-                return numero;
-            }
+            return int.TryParse(numeroStr, out var numero) ? numero : 0;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Erreur lors de l'extraction du numéro séquentiel de {Numero}", numeroCertificat);
+            return 0;
         }
-
-        return 0;
     }
 
-    public string FormaterDatePourNumero(DateTime date)
-    {
-        // Format : ddmmyy
-        // Exemple : 24/10/2024 → 241024
-        return date.ToString("ddMMyy");
-    }
+    public string FormaterDatePourNumero(DateTime date) => date.ToString("ddMMyy");
 
-    private char GetLettreAleatoire()
+    private static char GetLettreAleatoire()
     {
-        var random = new Random();
+        var random = Random.Shared;
         return (char)('A' + random.Next(0, 26));
     }
 }
