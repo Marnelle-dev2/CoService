@@ -1,3 +1,4 @@
+using COService.API.Auth;
 using COService.Application.DTOs;
 using COService.Application.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -14,12 +15,19 @@ public static class CertificatLigneEndpoints
         var group = app.MapGroup("/api/certificats/{certificatId:guid}/lignes")
             .WithTags("Lignes de certificat");
 
-        // GET /api/certificats/{certificatId}/lignes - Liste toutes les lignes d'un certificat
         group.MapGet("/", async (
+            HttpContext httpContext,
             Guid certificatId,
+            ICertificatOrigineService certificatService,
             ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
+            var access = await EnsureCertificatAccessAsync(httpContext, certificatId, certificatService, cancellationToken);
+            if (access.Error != null)
+            {
+                return access.Error;
+            }
+
             var lignes = await service.GetLignesByCertificatIdAsync(certificatId, cancellationToken);
             return Results.Ok(lignes);
         })
@@ -27,13 +35,20 @@ public static class CertificatLigneEndpoints
         .WithSummary("Récupère toutes les lignes d'un certificat")
         .Produces<IEnumerable<CertificatLigneDto>>(StatusCodes.Status200OK);
 
-        // GET /api/certificats/{certificatId}/lignes/{id} - Récupère une ligne par ID
         group.MapGet("/{id:guid}", async (
+            HttpContext httpContext,
             Guid certificatId,
             Guid id,
+            ICertificatOrigineService certificatService,
             ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
+            var access = await EnsureCertificatAccessAsync(httpContext, certificatId, certificatService, cancellationToken);
+            if (access.Error != null)
+            {
+                return access.Error;
+            }
+
             var ligne = await service.GetLigneByIdAsync(id, cancellationToken);
             return ligne == null
                 ? Results.NotFound(new { message = $"Ligne avec l'ID {id} introuvable." })
@@ -44,14 +59,29 @@ public static class CertificatLigneEndpoints
         .Produces<CertificatLigneDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        // POST /api/certificats/{certificatId}/lignes - Crée une nouvelle ligne
         group.MapPost("/", async (
+            HttpContext httpContext,
             Guid certificatId,
             [FromBody] CreerCertificatLigneDto dto,
+            ICertificatOrigineService certificatService,
             ICertificatLigneService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (user.IsEnabled && !user.CanModifyCertificat)
+            {
+                return PocAuthResults.Forbidden("Ajout de ligne réservé à l'exportateur.");
+            }
+
+            var access = await EnsureCertificatAccessAsync(httpContext, certificatId, certificatService, cancellationToken);
+            if (access.Error != null)
+            {
+                return access.Error;
+            }
+
+            utilisateur ??= user.UserId;
+
             try
             {
                 var ligne = await service.CreerLigneAsync(certificatId, dto, utilisateur, cancellationToken);
@@ -73,15 +103,30 @@ public static class CertificatLigneEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status409Conflict);
 
-        // PUT /api/certificats/{certificatId}/lignes/{id} - Modifie une ligne
         group.MapPut("/{id:guid}", async (
+            HttpContext httpContext,
             Guid certificatId,
             Guid id,
             [FromBody] ModifierCertificatLigneDto dto,
+            ICertificatOrigineService certificatService,
             ICertificatLigneService service,
             [FromHeader(Name = "X-User-Id")] string? utilisateur,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (user.IsEnabled && !user.CanModifyCertificat)
+            {
+                return PocAuthResults.Forbidden("Modification de ligne réservée à l'exportateur.");
+            }
+
+            var access = await EnsureCertificatAccessAsync(httpContext, certificatId, certificatService, cancellationToken);
+            if (access.Error != null)
+            {
+                return access.Error;
+            }
+
+            utilisateur ??= user.UserId;
+
             try
             {
                 var ligne = await service.ModifierLigneAsync(id, dto, utilisateur, cancellationToken);
@@ -103,13 +148,26 @@ public static class CertificatLigneEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status409Conflict);
 
-        // DELETE /api/certificats/{certificatId}/lignes/{id} - Supprime une ligne
         group.MapDelete("/{id:guid}", async (
+            HttpContext httpContext,
             Guid certificatId,
             Guid id,
+            ICertificatOrigineService certificatService,
             ICertificatLigneService service,
             CancellationToken cancellationToken) =>
         {
+            var user = PocAuthResults.GetUser(httpContext);
+            if (user.IsEnabled && !user.CanModifyCertificat)
+            {
+                return PocAuthResults.Forbidden("Suppression de ligne réservée à l'exportateur.");
+            }
+
+            var access = await EnsureCertificatAccessAsync(httpContext, certificatId, certificatService, cancellationToken);
+            if (access.Error != null)
+            {
+                return access.Error;
+            }
+
             try
             {
                 await service.SupprimerLigneAsync(id, cancellationToken);
@@ -129,5 +187,31 @@ public static class CertificatLigneEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status404NotFound)
         .Produces(StatusCodes.Status409Conflict);
+    }
+
+    private static async Task<(CertificatOrigineDto? Certificat, IResult? Error)> EnsureCertificatAccessAsync(
+        HttpContext httpContext,
+        Guid certificatId,
+        ICertificatOrigineService certificatService,
+        CancellationToken cancellationToken)
+    {
+        var user = PocAuthResults.GetUser(httpContext);
+        if (!user.CanReadCertificats)
+        {
+            return (null, PocAuthResults.Forbidden("Accès lecture certificats refusé pour ce profil."));
+        }
+
+        var certificat = await certificatService.GetCertificatByIdAsync(certificatId, cancellationToken);
+        if (certificat == null)
+        {
+            return (null, Results.NotFound(new { message = $"Certificat avec l'ID {certificatId} introuvable." }));
+        }
+
+        if (user.IsEnabled && !PocCertificatScope.CanAccessCertificat(certificat, user))
+        {
+            return (null, PocAuthResults.Forbidden("Accès à ce certificat refusé pour votre profil ou organisation."));
+        }
+
+        return (certificat, null);
     }
 }

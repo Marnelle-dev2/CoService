@@ -68,6 +68,71 @@ public static class StatutsCertificats
             $"Modification interdite : {refDossier} n'est plus en état éditable (état actuel : {etatCode}). " +
             "Seuls les dossiers Élaboré (E), Modification demandée (MD) ou Visas refusés (VR) peuvent être modifiés.");
     }
+
+    /// <summary>
+    /// Certificat visible par la chambre : soumis (≠ Élaboré) — aligné GECO partner_id + statut ≠ 1.
+    /// </summary>
+    public static bool EstVisibleParChambre(string? etatCode)
+    {
+        if (string.IsNullOrWhiteSpace(etatCode))
+        {
+            return false;
+        }
+
+        var code = NormaliserCodeEtat(etatCode);
+        return code is not (Elabore or "E" or "EL" or "ELABORE" or "ELABORER");
+    }
+
+    /// <summary>
+    /// Visibilité liste CCIAM par profil POC (réf. CertificatTraitement GECO + codes V2).
+    /// </summary>
+    public static bool EstVisibleParProfilChambre(string profile, string? etatCode)
+    {
+        if (!EstVisibleParChambre(etatCode))
+        {
+            return false;
+        }
+
+        var code = NormaliserCodeEtat(etatCode);
+        return profile.Trim().ToLowerInvariant() switch
+        {
+            "chambre" => true,
+            // Contrôleur / superviseur : VD → validé + rejet + modifications (GECO statuts 2,4,5,6,7,9,10)
+            "controleur" or "superviseur" => code is Soumis or Controle or Approuve or Valide or Rejete
+                or Modification or ModificationSoumise,
+            // Président : à partir de l'approbation (GECO statuts 7,5,6,9,10)
+            "president" => code is Approuve or Valide or Rejete or Modification or ModificationSoumise,
+            _ => false
+        };
+    }
+
+    /// <summary>Transitaire / douane : certificats ouverts ou en cours de visa (GECO statuts 2,4,5,7,10,11).</summary>
+    public static bool EstVisibleParTransitaire(string? etatCode)
+    {
+        var code = NormaliserCodeEtat(etatCode);
+        return code is Soumis or Controle or Approuve or Valide or Rejete or ModificationSoumise;
+    }
+
+    public static string NormaliserCodeEtat(string? etatCode)
+    {
+        if (string.IsNullOrWhiteSpace(etatCode))
+        {
+            return string.Empty;
+        }
+
+        var code = etatCode.Trim().ToUpperInvariant();
+        return code switch
+        {
+            "VD" => Soumis,
+            "CC" => Controle,
+            "CO" or "AP" => Approuve,
+            "O" => Valide,
+            "VR" => Rejete,
+            "MD" => Modification,
+            "MS" => ModificationSoumise,
+            _ => code
+        };
+    }
 }
 
 /// <summary>

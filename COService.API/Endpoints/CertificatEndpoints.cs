@@ -58,10 +58,9 @@ public static class CertificatEndpoints
                 return Results.NotFound(new { message = $"Certificat avec l'ID {id} introuvable." });
             }
 
-            if (user.IsEnabled && user.Profile == "exportateur" && !user.CanViewAllCertificats
-                && !PocCertificatScope.IsOwnedByExportateur(certificat, user))
+            if (user.IsEnabled && !PocCertificatScope.CanAccessCertificat(certificat, user))
             {
-                return PocAuthResults.Forbidden("Ce certificat n'appartient pas à votre organisation exportateur.");
+                return PocAuthResults.Forbidden("Accès à ce certificat refusé pour votre profil ou organisation.");
             }
 
             return Results.Ok(certificat);
@@ -203,6 +202,17 @@ public static class CertificatEndpoints
 
             try
             {
+                var existing = await service.GetCertificatByIdAsync(id, cancellationToken);
+                if (existing == null)
+                {
+                    return Results.NotFound(new { message = $"Certificat avec l'ID {id} introuvable." });
+                }
+
+                if (user.IsEnabled && !PocCertificatScope.CanAccessCertificat(existing, user))
+                {
+                    return PocAuthResults.Forbidden("Modification refusée : certificat hors périmètre.");
+                }
+
                 var certificat = await service.ModifierCertificatAsync(id, dto, utilisateur, cancellationToken);
                 return Results.Ok(certificat);
             }
