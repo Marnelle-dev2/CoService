@@ -199,11 +199,15 @@ using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<COService.Infrastructure.Data.COServiceDbContext>();
         db.Database.Migrate();
+
+        // Réaligner libellés workflow (ex. 45 « Controller » → « Approuvé »)
+        var etatService = scope.ServiceProvider.GetRequiredService<IEtatService>();
+        await etatService.SeedEtatsWorkflowAsync("startup");
     }
     catch (Exception ex)
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Échec application des migrations EF au démarrage");
+        logger.LogError(ex, "Échec application des migrations EF / seed états au démarrage");
     }
 }
 

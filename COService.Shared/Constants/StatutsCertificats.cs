@@ -97,11 +97,12 @@ public static class StatutsCertificats
         return profile.Trim().ToLowerInvariant() switch
         {
             "chambre" => true,
-            // Contrôleur / superviseur : VD → validé + rejet + modifications (GECO statuts 2,4,5,6,7,9,10)
-            "controleur" or "superviseur" => code is Soumis or Controle or Approuve or Valide or Rejete
-                or Modification or ModificationSoumise,
-            // Président : à partir de l'approbation (GECO statuts 7,5,6,9,10)
-            "president" => code is Approuve or Valide or Rejete or Modification or ModificationSoumise,
+            // GECO CertificatTraitement rôle 3 : 2,4,5,6,7,9,10 — pas le validé (8)
+            "controleur" => code is Soumis or Controle or Approuve or Modification or ModificationSoumise,
+            // GECO rôle 4 : 2,4,6,7,9,10 — pas le MD (5)
+            "superviseur" => code is Soumis or Controle or Approuve or ModificationSoumise,
+            // GECO rôle 6 : 7,5,6,9,10 — pas VD ni Contrôlé ni Ouvert en file traitement
+            "president" => code is Approuve or Modification or ModificationSoumise,
             _ => false
         };
     }

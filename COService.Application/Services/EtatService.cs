@@ -22,9 +22,10 @@ public class EtatService : IEtatService
     [
         (StatutsCertificats.Elabore, "Élaboré", "Demande en cours de saisie", "E", StatutsCertificats.Domaines.Commun),
         (StatutsCertificats.Soumis, "Visa demandé", "Demande soumise aux signataires", "VD", StatutsCertificats.Domaines.Commun),
-        (StatutsCertificats.Controle, "Contrôlé", "Certificat contrôlé (circuit CO)", "CC", StatutsCertificats.Domaines.CertificatOrigine),
-        (StatutsCertificats.Approuve, "Controller", "Certificat d'origine approuvé", "CO", StatutsCertificats.Domaines.Commun),
-        (StatutsCertificats.Valide, "Ouvert", "Demande signée/validée", "O", StatutsCertificats.Domaines.Commun),
+        (StatutsCertificats.Controle, "Contrôlé", "Certificat contrôlé par le contrôleur CCIAM", "CC", StatutsCertificats.Domaines.CertificatOrigine),
+        // Ref V2 libellé « Controller » = étape d'approbation superviseur — on affiche Approuvé pour le métier CO.
+        (StatutsCertificats.Approuve, "Approuvé", "Certificat approuvé par le superviseur (attente président)", "AP", StatutsCertificats.Domaines.Commun),
+        (StatutsCertificats.Valide, "Ouvert", "Certificat validé définitivement par le président", "O", StatutsCertificats.Domaines.Commun),
         (StatutsCertificats.Rejete, "Visas refusés", "Demande refusée", "VR", StatutsCertificats.Domaines.Commun),
         (StatutsCertificats.Modification, "Modification demandée", "Correction demandée par un signataire", "MD", StatutsCertificats.Domaines.Commun),
         (StatutsCertificats.ModificationSoumise, "Modification soumise", "Correction renvoyée au circuit de signature", "MS", StatutsCertificats.Domaines.Commun),
@@ -124,11 +125,29 @@ public class EtatService : IEtatService
         string? utilisateur = null,
         CancellationToken cancellationToken = default)
     {
-        var createdAny = false;
+        var changed = false;
         foreach (var (code, libelle, description, codeEcran, domaine) in WorkflowEtats)
         {
-            if (await _repository.ExistsAsync(code, cancellationToken))
+            var existing = await _repository.GetByCodeAsync(code, cancellationToken);
+            if (existing != null)
+            {
+                // Réaligner les libellés métier CO (ex. 45 « Controller » → « Approuvé »).
+                if (!string.Equals(existing.Libelle, libelle, StringComparison.Ordinal)
+                    || !string.Equals(existing.CodeEcran, codeEcran, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(existing.Description, description, StringComparison.Ordinal))
+                {
+                    existing.Libelle = libelle;
+                    existing.CodeEcran = codeEcran;
+                    existing.Description = description;
+                    existing.Domaine = domaine;
+                    existing.ModifierLe = DateTime.UtcNow;
+                    existing.ModifiePar = utilisateur ?? "SIMULATOR";
+                    _repository.Update(existing);
+                    changed = true;
+                }
+
                 continue;
+            }
 
             var etat = new Etat
             {
@@ -144,10 +163,10 @@ public class EtatService : IEtatService
                 CreePar = utilisateur ?? "SIMULATOR"
             };
             await _repository.AddAsync(etat, cancellationToken);
-            createdAny = true;
+            changed = true;
         }
 
-        if (createdAny)
+        if (changed)
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return _mapper.Map<IEnumerable<EtatDto>>(await _repository.GetAllAsync(cancellationToken));
