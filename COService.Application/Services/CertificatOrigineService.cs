@@ -44,6 +44,7 @@ public class CertificatOrigineService : ICertificatOrigineService
         var certificat = _mapper.Map<CertificatOrigine>(dto);
         certificat.CreePar = utilisateur;
         certificat.CreeLe = DateTime.UtcNow;
+        SanitizeReferentielCodes(certificat);
 
         if (string.IsNullOrWhiteSpace(dto.CertificateNo))
         {
@@ -56,6 +57,11 @@ public class CertificatOrigineService : ICertificatOrigineService
         else if (await _repository.ExistsAsync(dto.CertificateNo, cancellationToken))
         {
             throw new InvalidOperationException($"Un certificat avec le numéro {dto.CertificateNo} existe déjà.");
+        }
+
+        if (string.IsNullOrWhiteSpace(certificat.CertificateNo))
+        {
+            throw new InvalidOperationException("Impossible de générer le numéro de certificat.");
         }
 
         // Assigner l'état "Élaboré" par défaut lors de la création
@@ -83,6 +89,28 @@ public class CertificatOrigineService : ICertificatOrigineService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return _mapper.Map<CertificatOrigineDto>(certificat);
+    }
+
+    /// <summary>
+    /// Les codes vides "" cassent les FK optionnelles SQL Server — on les normalise en null.
+    /// </summary>
+    private static void SanitizeReferentielCodes(CertificatOrigine certificat)
+    {
+        static string? NullIfBlank(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        certificat.PaysDestinationCode = NullIfBlank(certificat.PaysDestinationCode);
+        certificat.PortSortieCode = NullIfBlank(certificat.PortSortieCode);
+        certificat.PortCongoCode = NullIfBlank(certificat.PortCongoCode);
+        certificat.AeroportCode = NullIfBlank(certificat.AeroportCode);
+        certificat.RouteCode = NullIfBlank(certificat.RouteCode);
+        certificat.CarnetAdresseCode = NullIfBlank(certificat.CarnetAdresseCode);
+        certificat.ModuleCode = NullIfBlank(certificat.ModuleCode);
+        certificat.DeviseCode = NullIfBlank(certificat.DeviseCode);
+        certificat.BureauDedouanementCode = NullIfBlank(certificat.BureauDedouanementCode);
+        certificat.ZoneProductionCode = NullIfBlank(certificat.ZoneProductionCode);
+        certificat.BattantPavillonCode = NullIfBlank(certificat.BattantPavillonCode);
+        certificat.ModePaiementCode = NullIfBlank(certificat.ModePaiementCode);
     }
 
     public async Task<IEnumerable<CertificatOrigineDto>> GetAllCertificatsAsync(CancellationToken cancellationToken = default)

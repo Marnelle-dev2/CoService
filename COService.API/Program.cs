@@ -192,6 +192,21 @@ builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 
 var app = builder.Build();
 
+// Appliquer les migrations (ex. drop FK codes référentiel qui bloquent la création de CO)
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<COService.Infrastructure.Data.COServiceDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Échec application des migrations EF au démarrage");
+    }
+}
+
 // Configure the HTTP request pipeline.
 // Swagger activé en Development et Production
 app.UseSwagger();
@@ -214,12 +229,17 @@ app.UseExceptionHandler(options =>
 
         var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
         var exception = exceptionHandlerPathFeature?.Error;
+        var detail = exception?.Message ?? "Une erreur inattendue s'est produite";
+        if (exception?.InnerException != null)
+        {
+            detail = $"{detail} | {exception.InnerException.Message}";
+        }
 
         var response = new
         {
             status = StatusCodes.Status500InternalServerError,
             title = "Une erreur s'est produite",
-            detail = exception?.Message ?? "Une erreur inattendue s'est produite",
+            detail,
             traceId = context.TraceIdentifier
         };
 

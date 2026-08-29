@@ -125,73 +125,30 @@ public class CertificatOrigineConfiguration : IEntityTypeConfiguration<Certifica
             .HasForeignKey(c => c.TypeId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Relations avec les référentiels — jointure par Code (clé métier, pas de FK GUID)
-        builder.HasOne(c => c.PaysDestination)
-            .WithMany()
-            .HasForeignKey(c => c.PaysDestinationCode)
-            .HasPrincipalKey(p => p.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.PortSortie)
-            .WithMany()
-            .HasForeignKey(c => c.PortSortieCode)
-            .HasPrincipalKey(p => p.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.PortCongo)
-            .WithMany()
-            .HasForeignKey(c => c.PortCongoCode)
-            .HasPrincipalKey(p => p.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.Aeroport)
-            .WithMany()
-            .HasForeignKey(c => c.AeroportCode)
-            .HasPrincipalKey(a => a.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.Route)
-            .WithMany()
-            .HasForeignKey(c => c.RouteCode)
-            .HasPrincipalKey(r => r.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.Module)
-            .WithMany()
-            .HasForeignKey(c => c.ModuleCode)
-            .HasPrincipalKey(m => m.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.Devise)
-            .WithMany()
-            .HasForeignKey(c => c.DeviseCode)
-            .HasPrincipalKey(d => d.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        builder.HasOne(c => c.BureauDedouanement)
-            .WithMany()
-            .HasForeignKey(c => c.BureauDedouanementCode)
-            .HasPrincipalKey(b => b.Code)
-            .OnDelete(DeleteBehavior.NoAction);
+        // Codes référentiels = valeurs du MS Référentiel (pas de copie locale obligatoire).
+        // Pas de FK EF : sinon SaveChanges échoue dès qu'un code (MA, FR, port…) n'existe pas en table locale.
+        builder.Ignore(c => c.PaysDestination);
+        builder.Ignore(c => c.PortSortie);
+        builder.Ignore(c => c.PortCongo);
+        builder.Ignore(c => c.Aeroport);
+        builder.Ignore(c => c.Route);
+        builder.Ignore(c => c.Module);
+        builder.Ignore(c => c.Devise);
+        builder.Ignore(c => c.BureauDedouanement);
+        builder.Ignore(c => c.BattantPavillon);
 
         // CarnetAdresseCode = référence opaque vers MS Référentiel (/api/carnetadresses).
-        // Plus de FK locale : le catalogue n'est plus géré dans CO.
         builder.Ignore(c => c.CarnetAdresse);
 
-        // Zone de production : relation bidirectionnelle (ZoneProduction.Certificats)
+        // Zone de production : table interne CO
         builder.HasOne(c => c.ZoneProduction)
             .WithMany(zp => zp.Certificats)
             .HasForeignKey(c => c.ZoneProductionCode)
             .HasPrincipalKey(zp => zp.Code)
-            .OnDelete(DeleteBehavior.NoAction);
+            .OnDelete(DeleteBehavior.NoAction)
+            .IsRequired(false);
 
-        builder.HasOne(c => c.BattantPavillon)
-            .WithMany(bp => bp.Certificats)
-            .HasForeignKey(c => c.BattantPavillonCode)
-            .HasPrincipalKey(bp => bp.Code)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        // Relation avec Etat
+        // Relation avec Etat (table interne CO)
         builder.HasOne(c => c.Etat)
             .WithMany(e => e.Certificats)
             .HasForeignKey(c => c.EtatCode)

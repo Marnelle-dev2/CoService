@@ -54,5 +54,8 @@ public class BattantPavillonConfiguration : IEntityTypeConfiguration<BattantPavi
         builder.Property(bp => bp.ModifiePar)
             .HasColumnName("ModifiePar")
             .HasColumnType("nvarchar(max)");
+
+        // Pas de FK Certificats → BattantPavillon : le code est stocké en clair (MS Référentiel).
+        builder.Ignore(bp => bp.Certificats);
     }
 }
