@@ -13,7 +13,9 @@ public sealed class PocUserContext : IPocUserContext
     public string Profile { get; init; } = "lecteur";
 
     public bool CanReadCertificats =>
-        !IsEnabled || Profile is "exportateur" or "chambre" or "transitaire" or "admin";
+        !IsEnabled || Profile is
+            "exportateur" or "chambre" or "controleur" or "superviseur" or "president"
+            or "transitaire" or "admin";
 
     public bool CanCreateCertificat =>
         !IsEnabled || Profile is "exportateur" or "admin";
@@ -22,8 +24,11 @@ public sealed class PocUserContext : IPocUserContext
         !IsEnabled || Profile is "exportateur" or "admin";
 
     public bool CanValidateCertificat =>
-        !IsEnabled || Profile is "chambre" or "admin";
+        !IsEnabled || Profile is
+            "chambre" or "controleur" or "superviseur" or "president" or "admin";
 
     public bool CanViewAllCertificats =>
-        !IsEnabled || Profile is "chambre" or "transitaire" or "admin";
+        !IsEnabled || Profile is
+            "chambre" or "controleur" or "superviseur" or "president"
+            or "transitaire" or "admin";
 }

@@ -1,3 +1,6 @@
+using COService.Application.Auth;
+using COService.Shared.Constants;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Refit;
@@ -5,41 +8,42 @@ using Refit;
 namespace COService.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Wrapper pour le client Auth Service via l'API Gateway (Apache APISIX)
+/// Wrapper Auth Service — en BypassMode, les rôles POC suivent X-Poc-Profile (CCIAM).
 /// </summary>
 public class AuthServiceClientWrapper : IAuthServiceClient
 {
     private readonly ILogger<AuthServiceClientWrapper> _logger;
     private readonly IAuthServiceClient? _client;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly bool _bypassMode;
 
     public AuthServiceClientWrapper(
         ILogger<AuthServiceClientWrapper> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor)
     {
         _logger = logger;
-        
+        _httpContextAccessor = httpContextAccessor;
+
         var authConfig = configuration.GetSection("ExternalServices:AuthService");
         _bypassMode = authConfig.GetValue<bool>("BypassMode", false);
-        
+
         _logger.LogInformation("Configuration AuthService - BypassMode: {BypassMode}", _bypassMode);
-        
+
         if (_bypassMode)
         {
-            _logger.LogWarning("⚠️ MODE BYPASS ACTIVÉ pour AuthService. L'authentification sera contournée pour les tests.");
+            _logger.LogWarning("MODE BYPASS AuthService : rôles dérivés du profil POC (X-Poc-Profile).");
             _client = null;
             return;
         }
-        
-        // Utiliser Apache APISIX API Gateway
-        var apiGatewayUrl = configuration.GetValue<string>("ApiGateway:BaseUrl") 
+
+        var apiGatewayUrl = configuration.GetValue<string>("ApiGateway:BaseUrl")
             ?? throw new InvalidOperationException("ApiGateway:BaseUrl non configuré");
-        
+
         var authPath = authConfig.GetValue<string>("Path") ?? "/api/auth";
         var timeout = authConfig.GetValue<int>("Timeout", 30);
-        
         var baseAddress = $"{apiGatewayUrl.TrimEnd('/')}{authPath}";
-        
+
         _client = RestService.For<IAuthServiceClient>(
             new HttpClient
             {
@@ -54,15 +58,15 @@ public class AuthServiceClientWrapper : IAuthServiceClient
     {
         if (_bypassMode)
         {
-            _logger.LogDebug("Mode bypass: retour d'informations utilisateur mock pour {UserId}", userId);
+            var roles = ResolvePocRoles();
             return new UserInfoDto
             {
                 UserId = userId,
-                Username = $"user_{userId}",
-                Email = $"{userId}@example.com",
+                Username = userId,
+                Email = $"{userId}@poc.local",
                 OrganisationId = Guid.Empty,
-                OrganisationCode = "",
-                Roles = new List<string> { "3", "4", "6" } // Tous les rôles pour les tests
+                OrganisationCode = ResolveOrganisationCode(),
+                Roles = roles
             };
         }
 
@@ -81,8 +85,11 @@ public class AuthServiceClientWrapper : IAuthServiceClient
     {
         if (_bypassMode)
         {
-            _logger.LogDebug("Mode bypass: vérification de rôle toujours vraie pour {UserId}, rôle {Role}", userId, role);
-            return true;
+            var roles = ResolvePocRoles();
+            var ok = roles.Contains(role, StringComparer.OrdinalIgnoreCase);
+            _logger.LogDebug("POC bypass VerifierRole {UserId}/{Role} => {Ok} (profil roles=[{Roles}])",
+                userId, role, ok, string.Join(',', roles));
+            return ok;
         }
 
         try
@@ -98,17 +105,11 @@ public class AuthServiceClientWrapper : IAuthServiceClient
 
     public async Task<List<string>> GetRolesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        if (_bypassMode)
+        if (_bypassMode || _client == null)
         {
-            _logger.LogInformation("Mode bypass: retour de tous les rôles pour {UserId}", userId);
-            // Retourner tous les rôles nécessaires pour les tests
-            return new List<string> { "3", "4", "6" }; // Contrôleur, Superviseur, Président
-        }
-
-        if (_client == null)
-        {
-            _logger.LogWarning("Client AuthService non initialisé, utilisation du mode bypass par défaut pour {UserId}", userId);
-            return new List<string> { "3", "4", "6" };
+            var roles = ResolvePocRoles();
+            _logger.LogInformation("POC bypass GetRoles {UserId} => [{Roles}]", userId, string.Join(',', roles));
+            return roles;
         }
 
         try
@@ -117,24 +118,17 @@ public class AuthServiceClientWrapper : IAuthServiceClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de la récupération des rôles pour l'utilisateur {UserId}. Utilisation du mode bypass par défaut.", userId);
-            // En cas d'erreur de connexion, retourner les rôles par défaut pour permettre les tests
-            return new List<string> { "3", "4", "6" };
+            _logger.LogError(ex, "Erreur GetRoles {UserId} — fallback profil POC.", userId);
+            return ResolvePocRoles();
         }
     }
 
     public async Task<bool> VerifierMotDePasseAsync(string userId, VerifyPasswordRequest request, CancellationToken cancellationToken = default)
     {
-        if (_bypassMode)
+        if (_bypassMode || _client == null)
         {
-            _logger.LogInformation("Mode bypass: vérification de mot de passe toujours vraie pour {UserId}", userId);
-            return true;
-        }
-
-        if (_client == null)
-        {
-            _logger.LogWarning("Client AuthService non initialisé, utilisation du mode bypass par défaut pour {UserId}", userId);
-            return true;
+            // POC : tout mot de passe non vide accepté (les écrans CCIAM enverront un MDP de confirmation).
+            return !string.IsNullOrWhiteSpace(request.Password);
         }
 
         try
@@ -143,23 +137,15 @@ public class AuthServiceClientWrapper : IAuthServiceClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de la vérification du mot de passe pour l'utilisateur {UserId}. Utilisation du mode bypass par défaut.", userId);
-            // En cas d'erreur de connexion, accepter le mot de passe pour permettre les tests
-            return true;
+            _logger.LogError(ex, "Erreur VerifierMotDePasse {UserId} — accepté en fallback POC.", userId);
+            return !string.IsNullOrWhiteSpace(request.Password);
         }
     }
 
     public async Task<bool> VerifierOrganisationAsync(string userId, string organisationCode, CancellationToken cancellationToken = default)
     {
-        if (_bypassMode)
+        if (_bypassMode || _client == null)
         {
-            _logger.LogInformation("Mode bypass: vérification d'organisation toujours vraie pour {UserId}, organisation {OrganisationCode}", userId, organisationCode);
-            return true;
-        }
-
-        if (_client == null)
-        {
-            _logger.LogWarning("Client AuthService non initialisé, utilisation du mode bypass par défaut pour {UserId}", userId);
             return true;
         }
 
@@ -169,9 +155,62 @@ public class AuthServiceClientWrapper : IAuthServiceClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de la vérification de l'organisation {OrganisationCode} pour l'utilisateur {UserId}. Utilisation du mode bypass par défaut.", organisationCode, userId);
-            // En cas d'erreur de connexion, accepter l'organisation pour permettre les tests
+            _logger.LogError(ex, "Erreur VerifierOrganisation {UserId}/{OrganisationCode}", userId, organisationCode);
             return true;
         }
+    }
+
+    private List<string> ResolvePocRoles()
+    {
+        var profile = ResolveCurrentProfile();
+        return profile switch
+        {
+            "controleur" => new List<string> { RolesUtilisateurs.Controleur },
+            "superviseur" => new List<string> { RolesUtilisateurs.Superviseur, RolesUtilisateurs.Controleur },
+            "president" => new List<string> { RolesUtilisateurs.President },
+            // Chambre générique : tous les rôles CCIAM (pratique pour tests rapides)
+            "chambre" => new List<string>
+            {
+                RolesUtilisateurs.Controleur,
+                RolesUtilisateurs.Superviseur,
+                RolesUtilisateurs.President
+            },
+            "admin" => new List<string>
+            {
+                RolesUtilisateurs.Controleur,
+                RolesUtilisateurs.Superviseur,
+                RolesUtilisateurs.President,
+                RolesUtilisateurs.Exportateur
+            },
+            "exportateur" => new List<string> { RolesUtilisateurs.Exportateur },
+            _ => new List<string>()
+        };
+    }
+
+    private string ResolveCurrentProfile()
+    {
+        var http = _httpContextAccessor.HttpContext;
+        if (http?.Items.TryGetValue(nameof(IPocUserContext), out var raw) == true
+            && raw is IPocUserContext poc
+            && !string.IsNullOrWhiteSpace(poc.Profile))
+        {
+            return poc.Profile.Trim().ToLowerInvariant();
+        }
+
+        var header = http?.Request.Headers["X-Poc-Profile"].FirstOrDefault();
+        return string.IsNullOrWhiteSpace(header) ? "lecteur" : header.Trim().ToLowerInvariant();
+    }
+
+    private string ResolveOrganisationCode()
+    {
+        var http = _httpContextAccessor.HttpContext;
+        if (http?.Items.TryGetValue(nameof(IPocUserContext), out var raw) == true
+            && raw is IPocUserContext poc
+            && !string.IsNullOrWhiteSpace(poc.OrganisationCode))
+        {
+            return poc.OrganisationCode;
+        }
+
+        return http?.Request.Headers["X-Organisation-Code"].FirstOrDefault() ?? "CCIAM";
     }
 }

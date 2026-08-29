@@ -31,6 +31,20 @@ public class PocAuthorizationMiddleware
             ?? context.Request.Headers["X-User-Name"].FirstOrDefault();
         var organisationCode = context.Request.Headers["X-Organisation-Code"].FirstOrDefault();
 
+        // Utilisateur POC stable par rôle CCIAM si le client n'envoie pas d'id explicite utile.
+        if (string.IsNullOrWhiteSpace(userId) || IsGenericGatewayUser(userId))
+        {
+            userId = profile switch
+            {
+                "controleur" => "poc.controleur.cciam",
+                "superviseur" => "poc.superviseur.cciam",
+                "president" => "poc.president.cciam",
+                "chambre" => "poc.cciam",
+                "exportateur" => "poc.exportateur",
+                _ => userId
+            };
+        }
+
         var userContext = new PocUserContext
         {
             IsEnabled = true,
@@ -43,6 +57,12 @@ public class PocAuthorizationMiddleware
         await _next(context);
     }
 
+    private static bool IsGenericGatewayUser(string? userId)
+    {
+        var value = (userId ?? string.Empty).Trim().ToLowerInvariant();
+        return value is "admin" or "user" or "gateway" or "service";
+    }
+
     private static string NormalizeProfile(string? raw)
     {
         var value = (raw ?? "lecteur").Trim().ToLowerInvariant();
@@ -50,6 +70,9 @@ public class PocAuthorizationMiddleware
         {
             "exportateur" => "exportateur",
             "chambre" or "cciam" => "chambre",
+            "controleur" or "controlleur" or "controller" => "controleur",
+            "superviseur" or "supervisor" => "superviseur",
+            "president" or "président" or "sg" => "president",
             "transitaire" => "transitaire",
             "admin" => "admin",
             _ => "lecteur"

@@ -11,7 +11,9 @@ public interface IPocUserContext
 
     string? OrganisationCode { get; }
 
-    /// <summary>exportateur | chambre | transitaire | admin | lecteur</summary>
+    /// <summary>
+    /// exportateur | chambre | controleur | superviseur | president | transitaire | admin | lecteur
+    /// </summary>
     string Profile { get; }
 
     bool CanReadCertificats { get; }
