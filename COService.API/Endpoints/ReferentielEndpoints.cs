@@ -188,16 +188,17 @@ public static class ReferentielEndpoints
                 {
                     var term = search.Trim();
                     var termUpper = term.ToUpperInvariant();
+                    var termDigits = new string(term.Where(char.IsDigit).ToArray());
                     query = query.Where(p =>
-                        p.Code.StartsWith(termUpper, StringComparison.OrdinalIgnoreCase)
+                        p.Code.Contains(termUpper, StringComparison.OrdinalIgnoreCase)
+                        || p.Code.StartsWith(termUpper, StringComparison.OrdinalIgnoreCase)
+                        || (!string.IsNullOrEmpty(termDigits)
+                            && p.Code.Replace(".", "").StartsWith(termDigits, StringComparison.OrdinalIgnoreCase))
                         || (p.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
                 }
-                else if (string.IsNullOrWhiteSpace(search))
-                {
-                    return Results.Ok(Array.Empty<object>());
-                }
 
-                var limit = Math.Clamp(take ?? 20, 1, 50);
+                // Sans search : liste pour dropdown (plafond élevé — cache mémoire côté MS).
+                var limit = Math.Clamp(take ?? (string.IsNullOrWhiteSpace(search) ? 2000 : 50), 1, 5000);
                 var items = query
                     .OrderBy(p => p.Code)
                     .Take(limit)
@@ -225,7 +226,7 @@ public static class ReferentielEndpoints
             }
         })
         .WithName("GetReferentielPositionsTarifaires")
-        .WithSummary("Positions tarifaires depuis MS Référentiel (recherche + cache, min. param search)");
+        .WithSummary("Positions tarifaires depuis MS Référentiel (liste dropdown ou recherche + cache)");
 
         // Carnet d'adresses : propre à une organisation (filtre serveur + client)
         group.MapGet("/carnet-adresses", async (
