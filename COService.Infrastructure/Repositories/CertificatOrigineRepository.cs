@@ -6,7 +6,8 @@ using Microsoft.EntityFrameworkCore;
 namespace COService.Infrastructure.Repositories;
 
 /// <summary>
-/// Implémentation du repository pour les certificats d'origine
+/// Repository certificats — navigations référentiels (Pays, Ports, Module…) ignorées côté EF
+/// (codes stockés en clair, données live via MS Référentiel).
 /// </summary>
 public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICertificatOrigineRepository
 {
@@ -16,39 +17,13 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
 
     public override async Task<CertificatOrigine?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .Include(c => c.CertificatLignes)
-            .Include(c => c.CertificateValidations)
-            .Include(c => c.Commentaires)
-            .Include(c => c.Abonnement)
-            .Include(c => c.PaysDestination)
-            .Include(c => c.PortSortie)
-            .Include(c => c.PortCongo)
-            .Include(c => c.ZoneProduction)
-            .Include(c => c.BureauDedouanement)
-            .Include(c => c.Module)
-            .Include(c => c.Devise)
-            .Include(c => c.Type)
-            .Include(c => c.Etat)
+        return await QueryWithLocalIncludes()
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task<CertificatOrigine?> GetByCertificateNoAsync(string certificateNo, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .Include(c => c.CertificatLignes)
-            .Include(c => c.CertificateValidations)
-            .Include(c => c.Commentaires)
-            .Include(c => c.Abonnement)
-            .Include(c => c.PaysDestination)
-            .Include(c => c.PortSortie)
-            .Include(c => c.PortCongo)
-            .Include(c => c.ZoneProduction)
-            .Include(c => c.BureauDedouanement)
-            .Include(c => c.Module)
-            .Include(c => c.Devise)
-            .Include(c => c.Type)
-            .Include(c => c.Etat)
+        return await QueryWithLocalIncludes()
             .FirstOrDefaultAsync(c => c.CertificateNo == certificateNo, cancellationToken);
     }
 
@@ -79,9 +54,9 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
 
     public async Task<IEnumerable<CertificatOrigine>> GetByPaysDestinationAsync(string paysDestination, CancellationToken cancellationToken = default)
     {
+        var term = paysDestination.Trim();
         return await _dbSet
-            .Include(c => c.PaysDestination)
-            .Where(c => c.PaysDestination != null && c.PaysDestination.Nom.Contains(paysDestination))
+            .Where(c => c.PaysDestinationCode != null && c.PaysDestinationCode.Contains(term))
             .OrderByDescending(c => c.CreeLe)
             .ToListAsync(cancellationToken);
     }
@@ -90,4 +65,14 @@ public class CertificatOrigineRepository : Repository<CertificatOrigine>, ICerti
     {
         return await _dbSet.AnyAsync(c => c.CertificateNo == certificateNo, cancellationToken);
     }
+
+    private IQueryable<CertificatOrigine> QueryWithLocalIncludes() =>
+        _dbSet
+            .Include(c => c.CertificatLignes)
+            .Include(c => c.CertificateValidations)
+            .Include(c => c.Commentaires)
+            .Include(c => c.Abonnement)
+            .Include(c => c.ZoneProduction)
+            .Include(c => c.Type)
+            .Include(c => c.Etat);
 }
