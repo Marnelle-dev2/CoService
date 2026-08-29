@@ -84,7 +84,8 @@ public static class StatutsCertificats
     }
 
     /// <summary>
-    /// Visibilité liste CCIAM par profil POC (réf. CertificatTraitement GECO + codes V2).
+    /// Visibilité liste CCIAM : file chambre (CO déjà soumis), tous profils voient la même file.
+    /// Les actions (contrôler / approuver / valider / rejeter) restent restreintes par rôle + état.
     /// </summary>
     public static bool EstVisibleParProfilChambre(string profile, string? etatCode)
     {
@@ -96,13 +97,10 @@ public static class StatutsCertificats
         var code = NormaliserCodeEtat(etatCode);
         return profile.Trim().ToLowerInvariant() switch
         {
-            "chambre" => true,
-            // GECO CertificatTraitement rôle 3 : 2,4,5,6,7,9,10 — pas le validé (8)
-            "controleur" => code is Soumis or Controle or Approuve or Modification or ModificationSoumise,
-            // GECO rôle 4 : 2,4,6,7,9,10 — pas le MD (5)
-            "superviseur" => code is Soumis or Controle or Approuve or ModificationSoumise,
-            // GECO rôle 6 : 7,5,6,9,10 — pas VD ni Contrôlé ni Ouvert en file traitement
-            "president" => code is Approuve or Modification or ModificationSoumise,
+            "chambre" or "controleur" or "superviseur" or "president"
+                // Pipeline chambre : VD → Contrôlé → Approuvé → Ouvert + retours MD/MS/VR
+                => code is Soumis or Controle or Approuve or Valide
+                    or Modification or ModificationSoumise or Rejete,
             _ => false
         };
     }
