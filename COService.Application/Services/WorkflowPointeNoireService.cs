@@ -328,12 +328,12 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
             throw new UnauthorizedAccessException("Mot de passe incorrect");
         }
 
-        // Récupérer le statut "Rejeté"
-        var etatRejete = await _etatRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
-            ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Rejete}' introuvable");
+        // Récupérer le statut « Modification demandée » (GECO statut 5 → V2 MD 66)
+        var etatModification = await _etatRepository.GetByCodeAsync(StatutsCertificats.Modification, cancellationToken)
+            ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Modification}' introuvable");
 
         // Effectuer la transition
-        certificat.EtatCode = etatRejete.Code;
+        certificat.EtatCode = etatModification.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -352,7 +352,7 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Certificat {CertificatId} rejeté par l'utilisateur {UserId} avec le commentaire: {Commentaire}", 
+        _logger.LogInformation("Certificat {CertificatId} renvoyé en modification demandée (MD) par l'utilisateur {UserId} : {Commentaire}",
             certificatId, userId, commentaire);
 
         // Envoyer notification de rejet
@@ -419,11 +419,11 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
         {
             (StatutsCertificats.Elabore, StatutsCertificats.Soumis) => true,
             (StatutsCertificats.Soumis, StatutsCertificats.Controle) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Soumis, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
+            (StatutsCertificats.Soumis, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
             (StatutsCertificats.Controle, StatutsCertificats.Approuve) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Controle, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
+            (StatutsCertificats.Controle, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
             (StatutsCertificats.Approuve, StatutsCertificats.Valide) => roles.Contains(RolesUtilisateurs.President),
-            (StatutsCertificats.Approuve, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.President),
+            (StatutsCertificats.Approuve, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.President),
             (StatutsCertificats.Valide, StatutsCertificats.Modification) => true,
             _ => false
         };
@@ -449,7 +449,7 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
                 {
                     transitions.Add(StatutsCertificats.Controle);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 
@@ -457,7 +457,7 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
                 {
                     transitions.Add(StatutsCertificats.Approuve);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 
@@ -465,7 +465,7 @@ internal class WorkflowPointeNoireService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.President))
                 {
                     transitions.Add(StatutsCertificats.Valide);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 

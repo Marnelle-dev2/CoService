@@ -377,11 +377,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             throw new UnauthorizedAccessException("Mot de passe incorrect");
         }
 
-        // Récupérer le statut "Rejeté"
-        var etatRejete = await _etatRepository.GetByCodeAsync(StatutsCertificats.Rejete, cancellationToken)
-            ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Rejete}' introuvable");
+        // Récupérer le statut « Modification demandée » (GECO statut 5)
+        var etatModification = await _etatRepository.GetByCodeAsync(StatutsCertificats.Modification, cancellationToken)
+            ?? throw new InvalidOperationException($"Statut '{StatutsCertificats.Modification}' introuvable");
 
-        certificat.EtatCode = etatRejete.Code;
+        certificat.EtatCode = etatModification.Code;
         certificat.ModifierLe = DateTime.UtcNow;
         certificat.ModifiePar = userId;
 
@@ -496,11 +496,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         {
             (StatutsCertificats.Elabore, StatutsCertificats.Soumis) => true,
             (StatutsCertificats.Soumis, StatutsCertificats.Controle) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Soumis, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
+            (StatutsCertificats.Soumis, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
             (StatutsCertificats.Controle, StatutsCertificats.Approuve) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Controle, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
+            (StatutsCertificats.Controle, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
             (StatutsCertificats.Approuve, StatutsCertificats.Valide) => roles.Contains(RolesUtilisateurs.President),
-            (StatutsCertificats.Approuve, StatutsCertificats.Rejete) => roles.Contains(RolesUtilisateurs.President),
+            (StatutsCertificats.Approuve, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.President),
             (StatutsCertificats.Valide, StatutsCertificats.Modification) => true,
             (StatutsCertificats.Modification, StatutsCertificats.Approuve) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
             (StatutsCertificats.Modification, StatutsCertificats.Valide) => roles.Contains(RolesUtilisateurs.President),
@@ -536,7 +536,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
                 {
                     transitions.Add(StatutsCertificats.Controle);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 
@@ -544,7 +544,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
                 {
                     transitions.Add(StatutsCertificats.Approuve);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 
@@ -552,7 +552,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 if (roles.Contains(RolesUtilisateurs.President))
                 {
                     transitions.Add(StatutsCertificats.Valide);
-                    transitions.Add(StatutsCertificats.Rejete);
+                    transitions.Add(StatutsCertificats.Modification);
                 }
                 break;
 

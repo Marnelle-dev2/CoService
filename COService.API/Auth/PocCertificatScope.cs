@@ -30,7 +30,8 @@ public static class PocCertificatScope
 
         return user.Profile switch
         {
-            "exportateur" => IsOwnedByExportateur(certificat, user),
+            // GECO ListeCertificat : exportateur = mandataire, tous les statuts.
+            "exportateur" => IsVisibleForExportateur(certificat, user),
             "controleur" or "superviseur" or "president" or "chambre"
                 => IsSubmittedToChambre(certificat, user)
                    && StatutsCertificats.EstVisibleParProfilChambre(user.Profile, certificat.EtatCode),
@@ -38,6 +39,84 @@ public static class PocCertificatScope
             "admin" => true,
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Exportateur : tous ses CO (tous états). Aligné GECO mandataire = organisation exportateur.
+    /// </summary>
+    public static bool IsVisibleForExportateur(CertificatOrigineDto certificat, IPocUserContext user)
+    {
+        if (IsOwnedByExportateur(certificat, user))
+        {
+            return true;
+        }
+
+        // POC mono-exportateur : org simulée EXPGLOBAL → voir tous les CO avec exportateur renseigné.
+        if (IsGenericExportateurOrganisation(user.OrganisationCode)
+            && (!string.IsNullOrWhiteSpace(certificat.ExportateurNIU)
+                || !string.IsNullOrWhiteSpace(certificat.ExportateurNom)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsGenericExportateurOrganisation(string? organisationCode)
+    {
+        var org = organisationCode?.Trim();
+        if (string.IsNullOrWhiteSpace(org))
+        {
+            return false;
+        }
+
+        return org.Contains("EXP", StringComparison.OrdinalIgnoreCase)
+            || org.Contains("GLOBAL", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsOwnedByExportateur(CertificatOrigineDto certificat, IPocUserContext user)
+    {
+        var org = user.OrganisationCode?.Trim();
+        var userId = user.UserId?.Trim();
+
+        if (MatchesCreator(certificat, userId))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(org))
+        {
+            if (OrgMatches(certificat.ExportateurNIU, org) || OrgMatches(certificat.ExportateurNom, org))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool MatchesCreator(CertificatOrigineDto certificat, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return false;
+        }
+
+        return string.Equals(certificat.CreePar, userId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(certificat.ModifiePar, userId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool OrgMatches(string? value, string org)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var v = value.Trim();
+        return string.Equals(v, org, StringComparison.OrdinalIgnoreCase)
+            || v.Contains(org, StringComparison.OrdinalIgnoreCase)
+            || org.Contains(v, StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsSubmittedToChambre(CertificatOrigineDto certificat, IPocUserContext user)
@@ -51,35 +130,6 @@ public static class PocCertificatScope
             certificat.PartenaireNIU,
             certificat.PartenaireNom,
             user.OrganisationCode);
-    }
-
-    public static bool IsOwnedByExportateur(CertificatOrigineDto certificat, IPocUserContext user)
-    {
-        var org = user.OrganisationCode?.Trim();
-        var userId = user.UserId?.Trim();
-
-        if (!string.IsNullOrWhiteSpace(org))
-        {
-            if (string.Equals(certificat.ExportateurNIU, org, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(certificat.ExportateurNom)
-                && (string.Equals(certificat.ExportateurNom, org, StringComparison.OrdinalIgnoreCase)
-                    || certificat.ExportateurNom.Contains(org, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(userId)
-            && string.Equals(certificat.CreePar, userId, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
     }
 
     private static bool MatchesOrganisation(string? entityCode, string? entityNom, string? userOrg)
