@@ -116,13 +116,10 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             throw new InvalidOperationException($"Le certificat doit être au statut 'Soumis' pour être contrôlé. Statut actuel: {certificat.EtatCode}");
         }
 
-        // Vérifier le rôle (Contrôleur ou Superviseur - rôles 3 ou 4)
         var roles = await _authService.GetRolesAsync(userId, cancellationToken);
-        var peutControler = roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur);
-        
-        if (!peutControler)
+        if (!WorkflowRoleRules.PeutControler(roles))
         {
-            throw new UnauthorizedAccessException("Seuls les Contrôleurs (rôle 3) et Superviseurs (rôle 4) peuvent contrôler un certificat");
+            throw new UnauthorizedAccessException("Seul le Contrôleur (rôle 3) peut contrôler un certificat au stade Visa demandé (VD).");
         }
 
         // Vérifier le mot de passe
@@ -193,13 +190,10 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             throw new InvalidOperationException($"Le certificat doit être au statut 'Contrôlé' (Code: {StatutsCertificats.Controle}) pour être approuvé. Statut actuel: {certificat.EtatCode}");
         }
 
-        // Vérifier le rôle (Contrôleur ou Superviseur - rôles 3 ou 4)
         var roles = await _authService.GetRolesAsync(userId, cancellationToken);
-        var peutApprouver = roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur);
-        
-        if (!peutApprouver)
+        if (!WorkflowRoleRules.PeutApprouver(roles))
         {
-            throw new UnauthorizedAccessException("Seuls les Contrôleurs (rôle 3) et Superviseurs (rôle 4) peuvent approuver un certificat");
+            throw new UnauthorizedAccessException("Seul le Superviseur (rôle 4) peut approuver un certificat contrôlé.");
         }
 
         // Vérifier le mot de passe
@@ -349,24 +343,11 @@ internal class WorkflowOuessoService : IWorkflowChambreService
             throw new InvalidOperationException($"Le certificat ne peut être rejeté qu'aux statuts Soumis, Contrôlé ou Approuvé. Statut actuel: {certificat.EtatCode}");
         }
 
-        // Vérifier le rôle selon le statut
         var roles = await _authService.GetRolesAsync(userId, cancellationToken);
-        bool peutRejeter = false;
-
-        if (codeStatut == StatutsCertificats.Approuve)
+        if (!WorkflowRoleRules.PeutRejeter(codeStatut, roles))
         {
-            // Seul le Président peut rejeter depuis le statut approuvé
-            peutRejeter = roles.Contains(RolesUtilisateurs.President);
-        }
-        else
-        {
-            // Contrôleur ou Superviseur pour les autres statuts
-            peutRejeter = roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur);
-        }
-
-        if (!peutRejeter)
-        {
-            throw new UnauthorizedAccessException("Vous n'avez pas l'autorisation de rejeter ce certificat à ce stade");
+            throw new UnauthorizedAccessException(
+                "Rejet non autorisé : contrôleur (VD), superviseur (contrôlé) ou président (approuvé) selon l'étape.");
         }
 
         // Vérifier le mot de passe
@@ -495,15 +476,14 @@ internal class WorkflowOuessoService : IWorkflowChambreService
         return (codeStatutActuel, codeNouveauStatut) switch
         {
             (StatutsCertificats.Elabore, StatutsCertificats.Soumis) => true,
-            (StatutsCertificats.Soumis, StatutsCertificats.Controle) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Soumis, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Controle, StatutsCertificats.Approuve) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Controle, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Approuve, StatutsCertificats.Valide) => roles.Contains(RolesUtilisateurs.President),
-            (StatutsCertificats.Approuve, StatutsCertificats.Modification) => roles.Contains(RolesUtilisateurs.President),
+            (StatutsCertificats.Soumis, StatutsCertificats.Controle) => WorkflowRoleRules.PeutControler(roles),
+            (StatutsCertificats.Soumis, StatutsCertificats.Modification) => WorkflowRoleRules.PeutControler(roles),
+            (StatutsCertificats.Controle, StatutsCertificats.Approuve) => WorkflowRoleRules.PeutApprouver(roles),
+            (StatutsCertificats.Controle, StatutsCertificats.Modification) => WorkflowRoleRules.PeutApprouver(roles),
+            (StatutsCertificats.Approuve, StatutsCertificats.Valide) => WorkflowRoleRules.PeutValiderFinal(roles),
+            (StatutsCertificats.Approuve, StatutsCertificats.Modification) => WorkflowRoleRules.PeutValiderFinal(roles),
             (StatutsCertificats.Valide, StatutsCertificats.Modification) => true,
-            (StatutsCertificats.Modification, StatutsCertificats.Approuve) => roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur),
-            (StatutsCertificats.Modification, StatutsCertificats.Valide) => roles.Contains(RolesUtilisateurs.President),
+            (StatutsCertificats.Modification, StatutsCertificats.Soumis) => true,
             _ => false
         };
     }
@@ -533,7 +513,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 break;
 
             case StatutsCertificats.Soumis:
-                if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
+                if (WorkflowRoleRules.PeutControler(roles))
                 {
                     transitions.Add(StatutsCertificats.Controle);
                     transitions.Add(StatutsCertificats.Modification);
@@ -541,7 +521,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 break;
 
             case StatutsCertificats.Controle:
-                if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
+                if (WorkflowRoleRules.PeutApprouver(roles))
                 {
                     transitions.Add(StatutsCertificats.Approuve);
                     transitions.Add(StatutsCertificats.Modification);
@@ -549,7 +529,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 break;
 
             case StatutsCertificats.Approuve:
-                if (roles.Contains(RolesUtilisateurs.President))
+                if (WorkflowRoleRules.PeutValiderFinal(roles))
                 {
                     transitions.Add(StatutsCertificats.Valide);
                     transitions.Add(StatutsCertificats.Modification);
@@ -561,14 +541,7 @@ internal class WorkflowOuessoService : IWorkflowChambreService
                 break;
 
             case StatutsCertificats.Modification:
-                if (roles.Contains(RolesUtilisateurs.Controleur) || roles.Contains(RolesUtilisateurs.Superviseur))
-                {
-                    transitions.Add(StatutsCertificats.Approuve);
-                }
-                if (roles.Contains(RolesUtilisateurs.President))
-                {
-                    transitions.Add(StatutsCertificats.Valide);
-                }
+                transitions.Add(StatutsCertificats.Soumis);
                 break;
         }
 

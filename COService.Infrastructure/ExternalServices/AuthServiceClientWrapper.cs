@@ -166,7 +166,7 @@ public class AuthServiceClientWrapper : IAuthServiceClient
         return profile switch
         {
             "controleur" => new List<string> { RolesUtilisateurs.Controleur },
-            "superviseur" => new List<string> { RolesUtilisateurs.Superviseur, RolesUtilisateurs.Controleur },
+            "superviseur" => new List<string> { RolesUtilisateurs.Superviseur },
             "president" => new List<string> { RolesUtilisateurs.President },
             // Chambre générique : tous les rôles CCIAM (pratique pour tests rapides)
             "chambre" => new List<string>
