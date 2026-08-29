@@ -139,7 +139,13 @@ public class CertificatOrigineService : ICertificatOrigineService
             throw new KeyNotFoundException($"Certificat avec l'ID {id} introuvable.");
         }
 
+        StatutsCertificats.EnsureEditableParExportateur(certificat.EtatCode, certificat.CertificateNo);
+
+        // L'état ne se change que via le workflow — on préserve le code courant.
+        var etatCode = certificat.EtatCode;
         _mapper.Map(dto, certificat);
+        certificat.EtatCode = etatCode;
+        SanitizeReferentielCodes(certificat);
         certificat.ModifiePar = utilisateur;
         certificat.ModifierLe = DateTime.UtcNow;
 
@@ -156,6 +162,8 @@ public class CertificatOrigineService : ICertificatOrigineService
         {
             throw new KeyNotFoundException($"Certificat avec l'ID {id} introuvable.");
         }
+
+        StatutsCertificats.EnsureEditableParExportateur(certificat.EtatCode, certificat.CertificateNo);
 
         _repository.Remove(certificat);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

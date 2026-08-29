@@ -2,6 +2,7 @@ using AutoMapper;
 using COService.Application.DTOs;
 using COService.Application.Repositories;
 using COService.Domain.Entities;
+using COService.Shared.Constants;
 
 namespace COService.Application.Services;
 
@@ -35,6 +36,8 @@ public class CertificatLigneService : ICertificatLigneService
             throw new KeyNotFoundException($"Certificat avec l'ID {certificatId} introuvable.");
         }
 
+        StatutsCertificats.EnsureEditableParExportateur(certificat.EtatCode, certificat.CertificateNo);
+
         var ligne = _mapper.Map<CertificatLigne>(dto);
         ligne.CertificatId = certificatId;
         ligne.CreePar = utilisateur;
@@ -66,6 +69,8 @@ public class CertificatLigneService : ICertificatLigneService
             throw new KeyNotFoundException($"Ligne avec l'ID {id} introuvable.");
         }
 
+        await EnsureCertificatEditableAsync(ligne.CertificatId, cancellationToken);
+
         _mapper.Map(dto, ligne);
         ligne.ModifiePar = utilisateur;
         ligne.ModifierLe = DateTime.UtcNow;
@@ -84,7 +89,20 @@ public class CertificatLigneService : ICertificatLigneService
             throw new KeyNotFoundException($"Ligne avec l'ID {id} introuvable.");
         }
 
+        await EnsureCertificatEditableAsync(ligne.CertificatId, cancellationToken);
+
         _repository.Remove(ligne);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureCertificatEditableAsync(Guid certificatId, CancellationToken cancellationToken)
+    {
+        var certificat = await _certificatRepository.GetByIdAsync(certificatId, cancellationToken);
+        if (certificat == null)
+        {
+            throw new KeyNotFoundException($"Certificat avec l'ID {certificatId} introuvable.");
+        }
+
+        StatutsCertificats.EnsureEditableParExportateur(certificat.EtatCode, certificat.CertificateNo);
     }
 }

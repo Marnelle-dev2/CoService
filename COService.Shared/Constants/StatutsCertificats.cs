@@ -9,11 +9,11 @@ public static class StatutsCertificats
 {
     // Noyau commun V2
     public const string Elabore = "42";
-    public const string Soumis = "79";          // Visa demandé
+    public const string Soumis = "79";          // Visa demandé (VD)
     public const string Valide = "50";          // Ouvert / validé
-    public const string Modification = "66";    // Modification demandée
+    public const string Modification = "66";    // Modification demandée (MD)
     public const string ModificationSoumise = "68";
-    public const string Rejete = "80";          // Visas refusés
+    public const string Rejete = "80";          // Visas refusés (VR)
     public const string Annule = "51";
     public const string Cloture = "52";
 
@@ -34,6 +34,39 @@ public static class StatutsCertificats
     public static class Types
     {
         public const string Metier = "METIER";
+    }
+
+    /// <summary>
+    /// États où l'exportateur peut encore modifier en-tête / lignes
+    /// (avant soumission VD, ou après rejet / demande de modification).
+    /// Accepte code métier V2 ou code écran (E, MD, VR).
+    /// </summary>
+    public static bool EstEditableParExportateur(string? etatCode)
+    {
+        if (string.IsNullOrWhiteSpace(etatCode))
+        {
+            return true;
+        }
+
+        var code = etatCode.Trim().ToUpperInvariant();
+
+        return code is Elabore or Modification or Rejete
+            or "E" or "EL" or "ELABORE" or "ELABORER"
+            or "MD"
+            or "VR" or "REJETE";
+    }
+
+    public static void EnsureEditableParExportateur(string? etatCode, string? certificateNo = null)
+    {
+        if (EstEditableParExportateur(etatCode))
+        {
+            return;
+        }
+
+        var refDossier = string.IsNullOrWhiteSpace(certificateNo) ? "ce certificat" : $"le certificat {certificateNo}";
+        throw new InvalidOperationException(
+            $"Modification interdite : {refDossier} n'est plus en état éditable (état actuel : {etatCode}). " +
+            "Seuls les dossiers Élaboré (E), Modification demandée (MD) ou Visas refusés (VR) peuvent être modifiés.");
     }
 }
 

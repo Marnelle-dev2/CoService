@@ -1,10 +1,10 @@
 # Compose pour Portainer (sans Git, image Docker Hub)
-# Prérequis: docker push marnelle/coservice:1.4.9
+# Prérequis: docker push marnelle/coservice:1.5.0
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
 services:
   coservice:
-    image: marnelle/coservice:1.4.9
+    image: marnelle/coservice:1.5.0
     container_name: coservice
     ports:
       - "8700:8700"

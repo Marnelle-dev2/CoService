@@ -57,6 +57,10 @@ public static class CertificatLigneEndpoints
                 var ligne = await service.CreerLigneAsync(certificatId, dto, utilisateur, cancellationToken);
                 return Results.Created($"/api/certificats/{certificatId}/lignes/{ligne.Id}", ligne);
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
             catch (KeyNotFoundException ex)
             {
                 return Results.NotFound(new { message = ex.Message });
@@ -66,7 +70,8 @@ public static class CertificatLigneEndpoints
         .WithSummary("Crée une nouvelle ligne de certificat")
         .Accepts<CreerCertificatLigneDto>("application/json")
         .Produces<CertificatLigneDto>(StatusCodes.Status201Created)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // PUT /api/certificats/{certificatId}/lignes/{id} - Modifie une ligne
         group.MapPut("/{id:guid}", async (
@@ -82,6 +87,10 @@ public static class CertificatLigneEndpoints
                 var ligne = await service.ModifierLigneAsync(id, dto, utilisateur, cancellationToken);
                 return Results.Ok(ligne);
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
             catch (KeyNotFoundException ex)
             {
                 return Results.NotFound(new { message = ex.Message });
@@ -91,7 +100,8 @@ public static class CertificatLigneEndpoints
         .WithSummary("Modifie une ligne de certificat")
         .Accepts<ModifierCertificatLigneDto>("application/json")
         .Produces<CertificatLigneDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // DELETE /api/certificats/{certificatId}/lignes/{id} - Supprime une ligne
         group.MapDelete("/{id:guid}", async (
@@ -105,6 +115,10 @@ public static class CertificatLigneEndpoints
                 await service.SupprimerLigneAsync(id, cancellationToken);
                 return Results.NoContent();
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
             catch (KeyNotFoundException ex)
             {
                 return Results.NotFound(new { message = ex.Message });
@@ -113,6 +127,7 @@ public static class CertificatLigneEndpoints
         .WithName("SupprimerLigne")
         .WithSummary("Supprime une ligne de certificat")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
     }
 }

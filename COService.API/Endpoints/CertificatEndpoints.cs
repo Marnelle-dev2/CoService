@@ -206,6 +206,10 @@ public static class CertificatEndpoints
                 var certificat = await service.ModifierCertificatAsync(id, dto, utilisateur, cancellationToken);
                 return Results.Ok(certificat);
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
             catch (KeyNotFoundException ex)
             {
                 return Results.NotFound(new { message = ex.Message });
@@ -215,7 +219,8 @@ public static class CertificatEndpoints
         .WithSummary("Modifie un certificat d'origine")
         .Accepts<ModifierCertificatOrigineDto>("application/json")
         .Produces<CertificatOrigineDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // DELETE /api/certificats/{id} - Supprime un certificat
         group.MapDelete("/{id:guid}", async (
@@ -228,6 +233,10 @@ public static class CertificatEndpoints
                 await service.SupprimerCertificatAsync(id, cancellationToken);
                 return Results.NoContent();
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { message = ex.Message });
+            }
             catch (KeyNotFoundException ex)
             {
                 return Results.NotFound(new { message = ex.Message });
@@ -236,7 +245,8 @@ public static class CertificatEndpoints
         .WithName("SupprimerCertificat")
         .WithSummary("Supprime un certificat d'origine")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // POST /api/certificats/avec-documents - Crée un certificat avec documents
         group.MapPost("/avec-documents", async (
