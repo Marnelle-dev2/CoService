@@ -99,8 +99,25 @@ builder.Services.AddSingleton<GatewayTokenProvider>();
 builder.Services.AddSingleton<IGatewayTokenProvider>(sp => sp.GetRequiredService<GatewayTokenProvider>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GatewayTokenProvider>());
 
-// Client Enrolement avec wrapper pour découverte de service dynamique
-builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
+// Client Enrôlement — MS SEG :8300 (direct) ou legacy gateway /organisation
+var enrolementConfig = builder.Configuration.GetSection("ExternalServices:EnrolementService");
+var useEnrolementGateway = enrolementConfig.GetValue("UseApiGateway", false);
+if (useEnrolementGateway)
+{
+    builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
+}
+else
+{
+    var enrolementBaseUrl = enrolementConfig.GetValue<string>("BaseUrl")
+        ?? "http://srv-guot-cont.gumar.local:8300";
+    var enrolementTimeout = enrolementConfig.GetValue("Timeout", 60);
+
+    builder.Services.AddHttpClient<IEnrolementServiceClient, EnrolementActeursServiceClient>(client =>
+    {
+        client.BaseAddress = new Uri(enrolementBaseUrl.TrimEnd('/') + "/");
+        client.Timeout = TimeSpan.FromSeconds(enrolementTimeout);
+    });
+}
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IReferentielServiceClient, ReferentielServiceClientWrapper>();
 

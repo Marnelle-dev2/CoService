@@ -40,8 +40,9 @@ services:
       - ApiGateway__ServiceAccount__RefreshBeforeExpirySeconds=300
       # Fallback optionnel si ServiceAccount désactivé (token manuel, expire ~30 min)
       - ApiGateway__BearerToken=${GATEWAY_BEARER_TOKEN:-}
-      - ExternalServices__EnrolementService__Path=/organisation
-      - ExternalServices__EnrolementService__UseApiGateway=true
+      - ExternalServices__EnrolementService__BaseUrl=http://srv-guot-cont.gumar.local:8300
+      - ExternalServices__EnrolementService__UseApiGateway=false
+      - ExternalServices__EnrolementService__Timeout=60
       - ExternalServices__ReferentielService__BaseUrl=http://192.168.2.89:8290
       - ExternalServices__ReferentielService__UseApiGateway=false
       - ExternalServices__ReferentielService__RequireAuth=false
