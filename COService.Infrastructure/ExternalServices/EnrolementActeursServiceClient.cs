@@ -17,7 +17,7 @@ public class EnrolementActeursServiceClient : IEnrolementServiceClient
     {
         _http = http;
         _logger = logger;
-        _logger.LogInformation("Client Enrôlement configuré: {BaseAddress}", _http.BaseAddress);
+        _logger.LogInformation("Client ActeursService configuré: {BaseAddress}", _http.BaseAddress);
     }
 
     public Task<List<OrganisationRemoteDto>> GetAllOrganisationsAsync(CancellationToken cancellationToken = default)

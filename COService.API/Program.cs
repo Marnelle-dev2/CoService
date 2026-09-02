@@ -15,6 +15,7 @@ using COService.Infrastructure.Messaging.Handlers;
 using COService.Infrastructure.Repositories;
 using COService.Infrastructure.Services;
 using COService.Infrastructure.Configuration;
+using COService.Shared.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -99,23 +100,27 @@ builder.Services.AddSingleton<GatewayTokenProvider>();
 builder.Services.AddSingleton<IGatewayTokenProvider>(sp => sp.GetRequiredService<GatewayTokenProvider>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GatewayTokenProvider>());
 
-// Client Enrôlement — MS SEG :8300 (direct) ou legacy gateway /organisation
-var enrolementConfig = builder.Configuration.GetSection("ExternalServices:EnrolementService");
-var useEnrolementGateway = enrolementConfig.GetValue("UseApiGateway", false);
-if (useEnrolementGateway)
+// Client ActeursService (:8300) ou legacy EnrolementService via gateway
+var acteursConfig = builder.Configuration.GetSection("ExternalServices:ActeursService");
+var legacyEnrolementConfig = builder.Configuration.GetSection("ExternalServices:EnrolementService");
+var useActeursGateway = acteursConfig.GetValue("UseApiGateway", false);
+var useLegacyEnrolementGateway = legacyEnrolementConfig.GetValue("UseApiGateway", false);
+
+if (useActeursGateway || useLegacyEnrolementGateway)
 {
     builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
 }
 else
 {
-    var enrolementBaseUrl = enrolementConfig.GetValue<string>("BaseUrl")
-        ?? "http://srv-guot-cont.gumar.local:8300";
-    var enrolementTimeout = enrolementConfig.GetValue("Timeout", 60);
+    var acteursBaseUrl = acteursConfig.GetValue<string>("BaseUrl")
+        ?? legacyEnrolementConfig.GetValue<string>("BaseUrl")
+        ?? SegMicroservices.DefaultActeursBaseUrl;
+    var acteursTimeout = acteursConfig.GetValue("Timeout", 60);
 
     builder.Services.AddHttpClient<IEnrolementServiceClient, EnrolementActeursServiceClient>(client =>
     {
-        client.BaseAddress = new Uri(enrolementBaseUrl.TrimEnd('/') + "/");
-        client.Timeout = TimeSpan.FromSeconds(enrolementTimeout);
+        client.BaseAddress = new Uri(acteursBaseUrl.TrimEnd('/') + "/");
+        client.Timeout = TimeSpan.FromSeconds(acteursTimeout);
     });
 }
 builder.Services.AddMemoryCache();

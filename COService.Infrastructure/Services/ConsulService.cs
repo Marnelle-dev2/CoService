@@ -9,8 +9,8 @@ public class ConsulServiceOptions
 {
     public bool Enabled { get; set; } = true;
     public string Address { get; set; } = "http://srv-guot-cont.gumar.local:8500";
-    public string ServiceName { get; set; } = "coservice";
-    public string ServiceId { get; set; } = "coservice-1";
+    public string ServiceName { get; set; } = "cert-origine";
+    public string ServiceId { get; set; } = "cert-origine-1";
     public string ServiceAddress { get; set; } = "http://localhost:8700";
     public HealthCheckOptions HealthCheck { get; set; } = new();
 }

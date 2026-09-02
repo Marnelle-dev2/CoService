@@ -1,4 +1,4 @@
-# Compose pour Portainer (sans Git, image Docker Hub)
+# Compose pour Portainer — MS CoService (cert-origine :8700)
 # Prérequis: docker push marnelle/coservice:1.5.7
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
@@ -15,8 +15,8 @@ services:
       - ConnectionStrings__chaine=${DB_CONNECTION_STRING}
       - Consul__Enabled=true
       - Consul__Address=http://192.168.2.89:8500
-      - Consul__ServiceName=COService
-      - Consul__ServiceId=coservice-1
+      - Consul__ServiceName=cert-origine
+      - Consul__ServiceId=cert-origine-1
       - Consul__ServiceAddress=http://192.168.2.89:8700
       - Consul__HealthCheck__Endpoint=/sante
       - Consul__HealthCheck__Interval=10
@@ -40,10 +40,10 @@ services:
       - ApiGateway__ServiceAccount__RefreshBeforeExpirySeconds=300
       # Fallback optionnel si ServiceAccount désactivé (token manuel, expire ~30 min)
       - ApiGateway__BearerToken=${GATEWAY_BEARER_TOKEN:-}
-      - ExternalServices__EnrolementService__BaseUrl=http://srv-guot-cont.gumar.local:8300
-      - ExternalServices__EnrolementService__UseApiGateway=false
-      - ExternalServices__EnrolementService__Timeout=60
-      - ExternalServices__ReferentielService__BaseUrl=http://192.168.2.89:8290
+      - ExternalServices__ActeursService__BaseUrl=http://srv-guot-cont.gumar.local:8300
+      - ExternalServices__ActeursService__UseApiGateway=false
+      - ExternalServices__ActeursService__Timeout=60
+      - ExternalServices__ReferentielService__BaseUrl=http://srv-guot-cont.gumar.local:8290
       - ExternalServices__ReferentielService__UseApiGateway=false
       - ExternalServices__ReferentielService__RequireAuth=false
       - ExternalServices__AuthService__BypassMode=true
