@@ -156,7 +156,11 @@ internal static class EnrolementActeursApiClient
             var url = $"{path}{separator}PageNumber={page}&PageSize={PageSize}";
             var response = await http.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
-                break;
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException(
+                    $"ActeursService {url} → {(int)response.StatusCode}: {errorBody[..Math.Min(errorBody.Length, 300)]}");
+            }
 
             var payload = await response.Content.ReadFromJsonAsync<EnrolementPagedResponse<T>>(
                 JsonOptions,
@@ -165,7 +169,9 @@ internal static class EnrolementActeursApiClient
                 break;
 
             results.AddRange(payload.Items);
-            totalPages = Math.Max(payload.TotalPages, 1);
+            totalPages = payload.TotalPages > 0
+                ? payload.TotalPages
+                : Math.Max((int)Math.Ceiling(payload.TotalCount / (double)PageSize), 1);
             page++;
         }
 

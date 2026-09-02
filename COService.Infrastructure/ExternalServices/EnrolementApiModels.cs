@@ -7,6 +7,9 @@ internal sealed class EnrolementPagedResponse<T>
     [JsonPropertyName("items")]
     public List<T> Items { get; set; } = [];
 
+    [JsonPropertyName("totalCount")]
+    public int TotalCount { get; set; }
+
     [JsonPropertyName("totalPages")]
     public int TotalPages { get; set; }
 }

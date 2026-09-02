@@ -1,11 +1,13 @@
 # Compose pour Portainer — MS CoService (cert-origine :8700)
-# Prérequis: docker push marnelle/coservice:1.5.8
+# Prérequis: docker push marnelle/coservice:1.5.9
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
 services:
   coservice:
-    image: marnelle/coservice:1.5.8
+    image: marnelle/coservice:1.5.9
     container_name: coservice
+    extra_hosts:
+      - "srv-guot-cont.gumar.local:192.168.2.89"
     ports:
       - "8700:8700"
     environment:
@@ -40,10 +42,12 @@ services:
       - ApiGateway__ServiceAccount__RefreshBeforeExpirySeconds=300
       # Fallback optionnel si ServiceAccount désactivé (token manuel, expire ~30 min)
       - ApiGateway__BearerToken=${GATEWAY_BEARER_TOKEN:-}
-      - ExternalServices__ActeursService__BaseUrl=http://srv-guot-cont.gumar.local:8300
+      # ActeursService — IP directe (DNS conteneur souvent indisponible)
+      - ExternalServices__ActeursService__BaseUrl=http://192.168.2.89:8300
       - ExternalServices__ActeursService__UseApiGateway=false
       - ExternalServices__ActeursService__Timeout=60
-      - ExternalServices__ReferentielService__BaseUrl=http://srv-guot-cont.gumar.local:8290
+      - ExternalServices__EnrolementService__UseApiGateway=false
+      - ExternalServices__ReferentielService__BaseUrl=http://192.168.2.89:8290
       - ExternalServices__ReferentielService__UseApiGateway=false
       - ExternalServices__ReferentielService__RequireAuth=false
       - ExternalServices__AuthService__BypassMode=true

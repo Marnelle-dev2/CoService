@@ -100,28 +100,27 @@ builder.Services.AddSingleton<GatewayTokenProvider>();
 builder.Services.AddSingleton<IGatewayTokenProvider>(sp => sp.GetRequiredService<GatewayTokenProvider>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GatewayTokenProvider>());
 
-// Client ActeursService (:8300) ou legacy EnrolementService via gateway
+// Client ActeursService (:8300) — priorité sur legacy EnrolementService/gateway
 var acteursConfig = builder.Configuration.GetSection("ExternalServices:ActeursService");
 var legacyEnrolementConfig = builder.Configuration.GetSection("ExternalServices:EnrolementService");
-var useActeursGateway = acteursConfig.GetValue("UseApiGateway", false);
-var useLegacyEnrolementGateway = legacyEnrolementConfig.GetValue("UseApiGateway", false);
+var acteursBaseUrl = acteursConfig.GetValue<string>("BaseUrl")
+    ?? legacyEnrolementConfig.GetValue<string>("BaseUrl");
+var useActeursDirect = !acteursConfig.GetValue("UseApiGateway", false)
+    && !string.IsNullOrWhiteSpace(acteursBaseUrl);
 
-if (useActeursGateway || useLegacyEnrolementGateway)
+if (useActeursDirect)
 {
-    builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
-}
-else
-{
-    var acteursBaseUrl = acteursConfig.GetValue<string>("BaseUrl")
-        ?? legacyEnrolementConfig.GetValue<string>("BaseUrl")
-        ?? SegMicroservices.DefaultActeursBaseUrl;
     var acteursTimeout = acteursConfig.GetValue("Timeout", 60);
 
     builder.Services.AddHttpClient<IEnrolementServiceClient, EnrolementActeursServiceClient>(client =>
     {
-        client.BaseAddress = new Uri(acteursBaseUrl.TrimEnd('/') + "/");
+        client.BaseAddress = new Uri(acteursBaseUrl!.TrimEnd('/') + "/");
         client.Timeout = TimeSpan.FromSeconds(acteursTimeout);
     });
+}
+else
+{
+    builder.Services.AddSingleton<IEnrolementServiceClient, EnrolementServiceClientWrapper>();
 }
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IReferentielServiceClient, ReferentielServiceClientWrapper>();
