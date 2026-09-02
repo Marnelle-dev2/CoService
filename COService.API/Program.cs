@@ -34,11 +34,25 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS — client Angular de simulation (localhost:4200) et intégrations locales
+// CORS — client Angular (:4200) localhost ou IP réseau (POC Portainer)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevClient", policy =>
-        policy.WithOrigins("http://localhost:4200", "http://127.0.0.1:4200")
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
+
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+
+                if (uri.Port != 4200)
+                    return false;
+
+                return uri.Host is "localhost"
+                    or "127.0.0.1"
+                    || uri.Host.StartsWith("192.168.", StringComparison.Ordinal);
+            })
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
