@@ -1,10 +1,10 @@
 # Compose pour Portainer — MS CoService (cert-origine :8700)
-# Prérequis: docker push marnelle/coservice:1.5.10
+# Prérequis: docker push marnelle/coservice:1.5.11
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
 services:
   coservice:
-    image: marnelle/coservice:1.5.10
+    image: marnelle/coservice:1.5.11
     container_name: coservice
     extra_hosts:
       - "srv-guot-cont.gumar.local:192.168.2.89"

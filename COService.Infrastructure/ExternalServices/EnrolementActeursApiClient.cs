@@ -16,10 +16,12 @@ internal static class EnrolementActeursApiClient
         var chargeurs = await GetOrganisationsByTypeAsync(http, "EXPORTATEUR", cancellationToken);
         var transitaires = await GetOrganisationsByTypeAsync(http, "TRANSITAIRE", cancellationToken);
         var banques = await GetOrganisationsByTypeAsync(http, "BANQUE", cancellationToken);
+        var chambres = await GetOrganisationsByTypeAsync(http, "PARTENAIRE", cancellationToken);
 
         return chargeurs
             .Concat(transitaires)
             .Concat(banques)
+            .Concat(chambres)
             .GroupBy(o => o.Code.Trim().ToUpperInvariant())
             .Select(g => g.First())
             .ToList();
@@ -39,6 +41,8 @@ internal static class EnrolementActeursApiClient
                 await FetchPrestatairesAsync(http, "transitaires", "TRANSITAIRE", cancellationToken),
             "BANQUE" =>
                 await FetchPartenairesAsync(http, "banques", "BANQUE", cancellationToken),
+            "PARTENAIRE" or "CCI" or "CHAMBRE" or "CHAMBRE_COMMERCE" =>
+                await FetchChambresCommerceAsync(http, cancellationToken),
             _ =>
                 await SearchActeursAsync(http, normalized, cancellationToken)
         };
@@ -53,6 +57,10 @@ internal static class EnrolementActeursApiClient
             return null;
 
         var trimmed = code.Trim();
+        var chambre = ChambresCommerceFallback.FindByCode(trimmed);
+        if (chambre != null)
+            return chambre;
+
         var fromSearch = await SearchActeursAsync(http, trimmed, cancellationToken, trimmed);
         var match = fromSearch.FirstOrDefault(o =>
             string.Equals(o.Code, trimmed, StringComparison.OrdinalIgnoreCase)
@@ -65,6 +73,40 @@ internal static class EnrolementActeursApiClient
         return all.FirstOrDefault(o =>
             string.Equals(o.Code, trimmed, StringComparison.OrdinalIgnoreCase)
             || string.Equals(o.Niu, trimmed, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Chambres CCI : tente Acteurs /partenaires puis filtre CCI ; sinon fallback CCIAM-PNR / CCIAM-OUE.
+    /// </summary>
+    private static async Task<List<OrganisationRemoteDto>> FetchChambresCommerceAsync(
+        HttpClient http,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Liste générique partenaires (si peuplée côté Acteurs)
+            var partenaires = await FetchPartenairesAsync(http, "", "PARTENAIRE", cancellationToken);
+            var chambres = partenaires
+                .Where(IsLikelyChambreCommerce)
+                .ToList();
+            if (chambres.Count > 0)
+                return chambres;
+        }
+        catch (HttpRequestException)
+        {
+            // Segment vide ou 404 — on retombe sur le fallback métier.
+        }
+
+        return ChambresCommerceFallback.List.ToList();
+    }
+
+    private static bool IsLikelyChambreCommerce(OrganisationRemoteDto o)
+    {
+        var haystack = $"{o.Code} {o.Name} {o.Sigle} {o.Departement}".ToUpperInvariant();
+        return haystack.Contains("CCI")
+               || haystack.Contains("CHAMBRE")
+               || haystack.Contains("COMMERCE")
+               || haystack.Contains("CCIAM");
     }
 
     private static async Task<List<OrganisationRemoteDto>> FetchActeursSocietesAsync(
@@ -107,9 +149,13 @@ internal static class EnrolementActeursApiClient
         string typeLabel,
         CancellationToken cancellationToken)
     {
+        var path = string.IsNullOrWhiteSpace(segment)
+            ? "/api/v1/partenaires"
+            : $"/api/v1/partenaires/{segment.Trim().Trim('/')}";
+
         var items = await FetchPagedAsync<EnrolementPrestataireDto>(
             http,
-            $"/api/v1/partenaires/{segment}",
+            path,
             cancellationToken);
 
         return items
