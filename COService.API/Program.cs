@@ -209,6 +209,8 @@ builder.Services.AddScoped<IUniteStatistiqueRepository, UniteStatistiqueReposito
 builder.Services.AddScoped<IDepartementRepository, DepartementRepository>();
 builder.Services.AddScoped<IZoneProductionRepository, ZoneProductionRepository>();
 builder.Services.AddScoped<IZoneProductionService, ZoneProductionService>();
+builder.Services.AddScoped<IPositionTarifaireRepository, PositionTarifaireRepository>();
+builder.Services.AddScoped<IReferentielSyncService, ReferentielSyncService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Services Application
@@ -226,6 +228,28 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 
 var app = builder.Build();
+
+// Copie locale référentiel : sync au démarrage si tables vides (ne bloque pas si MS down)
+try
+{
+    using var scope = app.Services.CreateScope();
+    var sync = scope.ServiceProvider.GetRequiredService<IReferentielSyncService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.ReferentielSync");
+    if (await sync.IsLocalEmptyAsync())
+    {
+        logger.LogInformation("Copie locale référentiel vide — tentative de sync depuis MS Référentiel…");
+        var result = await sync.SyncAllAsync(includePositions: false);
+        if (result.HasAnySuccess)
+            logger.LogInformation("Sync démarrage OK (pays={Pays}, ports={Ports}, devises={Devises}).", result.Pays, result.Ports, result.Devises);
+        else
+            logger.LogWarning("Sync démarrage sans données (MS Référentiel indisponible ?). Les GET utiliseront la copie locale dès qu'elle sera peuplée via POST /api/referentiel/sync.");
+    }
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.ReferentielSync");
+    logger.LogWarning(ex, "Sync référentiel au démarrage ignoré.");
+}
 
 // Appliquer les migrations (ex. drop FK codes référentiel qui bloquent la création de CO)
 using (var scope = app.Services.CreateScope())
