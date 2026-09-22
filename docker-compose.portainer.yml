@@ -1,10 +1,10 @@
 # Compose pour Portainer — MS CoService (cert-origine :8700)
-# Prérequis: docker push marnelle/coservice:1.5.12
+# Prérequis: docker push marnelle/coservice:1.5.13
 # Dans Portainer: Detach from git → coller ce fichier → Update stack (+ Pull image)
 
 services:
   coservice:
-    image: marnelle/coservice:1.5.12
+    image: marnelle/coservice:1.5.13
     container_name: coservice
     extra_hosts:
       - "srv-guot-cont.gumar.local:192.168.2.89"
@@ -51,7 +51,7 @@ services:
       - ExternalServices__ReferentielService__UseApiGateway=false
       - ExternalServices__ReferentielService__RequireAuth=false
       - ExternalServices__AuthService__BypassMode=true
-      - PocAuth__Enabled=true
+      - PocAuth__Enabled=false
       - MassTransit__Enabled=true
       - MassTransit__UseInMemorySaga=true
       - MassTransit__UseInMemoryTransport=true

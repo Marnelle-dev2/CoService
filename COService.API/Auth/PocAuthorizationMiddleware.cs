@@ -14,14 +14,20 @@ public class PocAuthorizationMiddleware
     public PocAuthorizationMiddleware(RequestDelegate next, IConfiguration configuration)
     {
         _next = next;
-        _enabled = configuration.GetValue<bool>("PocAuth:Enabled", true);
+        _enabled = configuration.GetValue<bool>("PocAuth:Enabled", false);
     }
 
     public async Task InvokeAsync(HttpContext context, IPocUserContext pocUser)
     {
         if (!_enabled)
         {
-            context.Items[nameof(IPocUserContext)] = new PocUserContext { IsEnabled = false };
+            // MS ouvert : Auth = autre MS ; rôles gérés côté client pour l'instant.
+            context.Items[nameof(IPocUserContext)] = new PocUserContext
+            {
+                IsEnabled = false,
+                Profile = "admin",
+                UserId = "system"
+            };
             await _next(context);
             return;
         }
