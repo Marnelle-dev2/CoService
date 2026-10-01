@@ -31,7 +31,7 @@ public static class DocumentEndpoints
                 return Results.BadRequest("Type de document non autorisé");
 
             // Génération du nom d'objet
-            var objectName = documentType switch
+            var objectName = documentType.ToLower() switch
             {
                 "facture" => $"Factures/{certificatNo}/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}",
                 "piece-justificative" => $"PiecesJustificatives/{certificatNo}/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}",
@@ -67,7 +67,7 @@ public static class DocumentEndpoints
         .Produces(500);
 
         // Téléchargement d'un fichier
-        group.MapGet("/download/{objectName}", async (
+        group.MapGet("/download/{**objectName}", async (
             string objectName,
             IMinIOService minioService,
             CancellationToken cancellationToken) =>
@@ -99,7 +99,7 @@ public static class DocumentEndpoints
         .Produces(404);
 
         // Suppression d'un fichier
-        group.MapDelete("/{objectName}", async (
+        group.MapDelete("/{**objectName}", async (
             string objectName,
             IMinIOService minioService,
             CancellationToken cancellationToken) =>
@@ -124,7 +124,7 @@ public static class DocumentEndpoints
         .Produces(500);
 
         // Génération d'URL pré-signée
-        group.MapGet("/presigned-url/{objectName}", async (
+        group.MapGet("/presigned-url/{**objectName}", async (
             string objectName,
             int? expiryHours,
             IMinIOService minioService,
@@ -207,7 +207,7 @@ public static class DocumentEndpoints
         .Produces(500);
 
         // Vérification de l'existence d'un fichier
-        group.MapGet("/{objectName}/exists", async (
+        group.MapGet("/exists/{**objectName}", async (
             string objectName,
             IMinIOService minioService,
             CancellationToken cancellationToken) =>
